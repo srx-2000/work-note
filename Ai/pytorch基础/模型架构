@@ -1,0 +1,95 @@
+# 模型架构
+
+​	该章节主要说一些平时会常用到的一些模型结构，如：nn.Sequential、nn.ModuleList。主要目的在于理解他们都是什么东西，以及在模型搭建过程中扮演的角色，还有相似结构之间的区别，以及最后如何使用他们。
+
+## 什么是模型结构
+
+​	首先需要说明一下什么是模型结构，一般在模型的搭建过程中，都是在继承了nn.Module的子类的`__init__`方法中声明一个模型的架构，而这个架构从感性的认识上来说就是你这个模型的骨架，其中每一层到底应用了什么层。
+
+​	举个例子：比如要搭建一个多层的卷积网络，可能模型的第一层是一个输入为1，输出为20的2维卷积层，而第二层是一个简单的ReLU激活层，第三层可能是一个输入为20，输出为64的2维卷积，第四层则是一个输入层为64，输出层为3的简单线性层。那么此时在`__init__`方法中就应该有以下代码：
+
+```python
+class Mynet(nn.Module):
+    def __init__(self):
+        nn.Conv2d(1,20,5)
+        nn.ReLU()
+        nn.Conv2d(20,64,5)
+        nn.Lineears(20,3)
+```
+
+​	以上代码就是对模型架构的一个声明，而后续我们则可以在forward函数中使用上述声明出来的每一层模型，进行计算。
+
+​	而从理性上来讲【或者可以说是代码，论文】，则模型架构是你在代码中声明出一个`net=Mynet()`对象时，直接`print(net)`时他展示给你的那个架构，对应的也就是各大论文中用来描述模型架构的那一部分。绝大多数论文都会在介绍自己的工作时，最先展示出整个模型的架构，而后根据架构中的每个部分单独进行介绍。
+
+​	但通过上面的声明代码与描述你可能也发现了，既然声明了那肯定就是要在forward函数中用的，但是怎么用呢？这时就需要引入模型架构容器【自己起的名字】，如：MouduleList、Sequential等把模型装起来，以便在forward函数中可以利用for循环进行遍历，那么此时又有了一个新问题，既然模型容器只是承担了一个装模型的作用，那么我为什么不可以使用list，dict等python自带的容器进行盛放呢，这就引出了模型架构容器的另一大作用，即：**参数共享**。
+
+​	总所周知forward函数主要是担任的前向传播的作用，而在反向传播之后，通过优化器进行梯度优化，所以这里我们需要把输入的参数一层层的放入到上面声明的结构中，通过一层层的网络算出一个y_hat，利用这个y_hat与真实的y进行误差计算，从而利用该误差反向传播，送到优化器中进行参数优化。而此时关键点就来了：“参数优化”，在前面输入的时候我们是通过一层层的模型的参数计算出最终的y_hat的，那么在优化参数时，肯定也要将一层层的参数进行优化，但是如果此时我们使用的是python的原生容器，则无法做到参数共享，每一层都是独立的，整个网络在进行优化的时候都是分层优化的。这样的优化在绝大多数情况下是无效的。也就是说无论训练多久，每层的参数也都是各玩各的。所以为了使各层参数可以共享数据，以及在调优时相互作用，这里需要模型架构容器。
+
+### nn.ModuleList
+
+​	该结构类似于python中的list，我们完全可以把它当成一个可以参数共享的list进行使用，而且其中每一层在`__init__`方法中声明的顺序不会影响到后续forward函数中的使用顺序：
+
+```python
+class net3(nn.Module):
+    def __init__(self):
+        self.linears = nn.ModuleList([nn.Linear(10, 20), nn.Linear(20, 30), nn.Linear(5, 10)])
+
+    def forward(self, x):
+        x = self.linears[2](x)
+        x = self.linears[0](x)
+        x = self.linears[1](x)
+        return x
+
+net3 = net3()
+print(net3)
+# net3(
+#  (linears): ModuleList(
+#    (0): Linear(in_features=10, out_features=20, bias=True)
+#    (1): Linear(in_features=20, out_features=30, bias=True)
+#    (2): Linear(in_features=5, out_features=10, bias=True)
+#  )
+# )
+input = torch.randn(32, 5)
+print(net3(input).shape)
+# torch.Size([32, 30])
+```
+
+​	这里可以看到，虽然在结构声明时的顺序【仅用输入代表】是10,20,5，但在后面使用时的顺序，则可以调整为：5,10,20。所以nn.ModuleList相较于下面的nn.Sequential更加灵活，可以自己调整forward函数。
+
+### nn.Sequential
+
+​	nn.Sequential与上面的nn.ModuleList在大多数的功能上类似，但不同的是nn.Sequential是内置了一个forward函数，这也就意味着nn.Sequential是可以直接在代码中使用的，不像nn.ModuleList想要使用就必须得有一个forward函数来写输入逻辑。
+
+​	但同样的这个优点也给他带来了缺点，即：灵活性没有nn.ModuleList高，在架构声明时的顺序就是后面forward时候的顺序，所以nn.Sequential多用于确定了一块的模型架构就是这样了，从而将这一块架构进行一个“冻结”，方便后续作为一整个模块进行使用。在使用的时候也就不用利用for循环一点点的遍历nn.Sequential内部的模型了，可以直接将输入传入nn.Sequential，而nn.Sequential也会和黑箱一样直接给出一个输出。
+
+```python
+from collections import OrderedDict
+
+
+class net_seq(nn.Module):
+    def __init__(self):
+        super(net_seq, self).__init__()
+        self.seq = nn.Sequential(OrderedDict([
+            ('conv1', nn.Conv2d(1, 20, 5)),
+            ('relu1', nn.ReLU()),
+            ('conv2', nn.Conv2d(20, 64, 5)),
+            ('relu2', nn.ReLU())
+        ]))
+
+    def forward(self, x):
+        return self.seq(x)
+    
+net_seq = net_seq()
+print(net_seq)
+# net_seq(
+#  (seq): Sequential(
+#    (conv1): Conv2d(1, 20, kernel_size=(5, 5), stride=(1, 1))
+#    (relu1): ReLU()
+#    (conv2): Conv2d(20, 64, kernel_size=(5, 5), stride=(1, 1))
+#    (relu2): ReLU()
+#  )
+# )
+
+```
+
+​	同时nn.Sequential还有一个优点，他可以通过上面这种方式对每一层进行一个命名，这样的模型架构会更清晰。
