@@ -32,3 +32,16 @@ twine upload dist/* #上传
 pip install --upgrade packge_name
 ```
 
+5. tqdm进度条
+
+```python
+from tqdm import tqdm
+list=[1,2,3,4]
+bar=tqdm(list,file=sys.stdout)
+for step,data in enumate(bar):
+    """
+    do something with data and step
+    """
+    time.sleep(0.5)
+```
+
