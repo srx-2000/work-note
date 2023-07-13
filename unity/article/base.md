@@ -31,3 +31,37 @@
 ### 回忆截图
 
 ![image-20230711105952683](./base.assets/image-20230711105952683.png)
+
+# PointerEventData相关方法和属性
+
+## 基础介绍
+
+### [文章1](https://blog.csdn.net/a1208498468/article/details/117926271)
+
+### [文章2](https://blog.csdn.net/qq_41056203/article/details/84875282)
+
+### 回忆截图
+
+![image-20230713113239377](./base.assets/image-20230713113239377.png)
+
+![image-20230713113327650](./base.assets/image-20230713113327650.png)
+
+# 摄像机
+
+## 旋转
+
+### [文章](https://blog.csdn.net/falsedewuxin/article/details/131657900)
+
+上面这个文章一共介绍了【直接给代码】3种旋转方式，分别是：上下左右旋转、围绕某个物体上下左右旋转、始终跟随在某个物体的正后方
+
+## 第一人称视角移动
+
+### [文章](https://blog.csdn.net/weixin_43042683/article/details/128105734)
+
+### 回忆截图
+
+![image-20230713105022150](./base.assets/image-20230713105022150.png)
+
+# 插件合集
+
+### [文章【知乎】](https://zhuanlan.zhihu.com/p/456259935)
