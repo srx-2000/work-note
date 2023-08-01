@@ -29,9 +29,11 @@
 
 ### 原型和原型链
 
-#### 原型
+#### 原型【这里说的其实还是有一些问题的，具体可以看下面的[补充](#重要补充)】
 
-​	在说原型之前首先要明确一件事：在JS中所有的对象【函数也算对象】都会有原型，而在JS原型特指prototype或\_\_proto\_\_，其含义有一点像模板，其中\_\_proto\_\_被称为**隐式原型**，这个\_\_proto\_\_属性指向的是这个对象的构造函数的**prototype**，被称为**显式原型**。这里举一个例子可能更直观一些：
+​	在说原型之前首先要明确一件事：在JS中所有的对象【函数也算对象】都会有原型，而在JS原型特指prototype或\_\_proto\_\_，其含义有一点像模板，其中\_\_proto\_\_被称为**隐式原型**，这个\_\_proto\_\_属性指向的是这个对象的构造函数的**prototype**，被称为**显式原型**。这里举一个例子可能更直观一些。
+
+> **注意：**上面所说的**隐式原型**，即`__proto__`属性，实际上是只能通过实例对象进行调用的。而**显式原型**，即prototype属性，实际上只能通过原型调用。这里一定要区分好原型和原型对象以及实例对象这三者的关系。具体例子还是看下面的[补充](#重要补充)部分写的那个例子吧。
 
 ```js
 class Student{
@@ -59,6 +61,50 @@ student.introduce(); // 我是张三，考了99分。
 ![1686898554353](./JS逆向.assets/1686898554353.png)
 
 ​	通过上面的图片发现递归了！同时这里还可以给出一个结论，对所有的函数对象使用`__proto__`属性得到的都会是`ƒ () { [native code] }`这是因为他们没有具体的构造方法。
+
+##### 重要补充
+
+这里做一个类比和补充。
+
+1. 原型不仅仅可以通过关键字Class来创建，同时也可以使用函数来创建
+
+   ```js
+   //下面这个函数本身也可以作为一个原型存在
+   function User(){
+       
+   }
+   console.log("原型：",User);
+   //我们可以通过User.prototype这个关键字为这个原型添加一些属性和方法
+   User.prototype.username="test";
+   User.prototype.password="123456";
+   User.prototype.login=function(username,password){
+       //这里$符的应用类似于python中的f"{username}"，不同的是这个$需要在""里面   
+       console.log("${username}")
+   }
+   console.log("原型对象：",User.prototype);
+   // 同时也可以用new+原型的方式创建实例对象，但是创建的实例对象是一个空对象，其中的属性并不会被赋上原型对象的初值。
+   let user=new User();
+   console.log("实例对象：",user);
+   
+   // 使用原型对象获取到原型的方法：
+   // 这里值得注意的有两点：
+   // 1.使用User.prototype拿到的起始是原型对象
+   // 2.上面在声明原型时，使用的是一个function，其中并没有定义construtor构造器，但是这里却可以用construtor来获取到原型本身
+   console.log(User.prototype.construtor);
+   
+   // 使用实例对象获取原型对象【所以这里就可以发现上面说的其实有问题，上面说的原型本身其实是既包含了原型有包含了原型对象，不够准确】
+   // 同时需要注意上面所说的显示对象，即prototype只能使用原型.prototype才可以调用，而隐式对象则也只能用实例对象.__proto__进行调用。
+   console.log(user.__proto__);
+   // 慢慢的上面这个方法会被淘汰，现在更推荐使用下面的方法来获取
+   console.log(Object.getPrototypeOf(user))
+   
+   ```
+
+2. 如果使用java类比的话：
+
+   > 1. 原型等同于一个类，声明了一个类的存在
+   > 2. 原型对象类似于java中使用反射：object.class.getDeclaredFields()，object.class.getDeclaredMethods()拿到的一系列属性和方法。
+   > 3. 实例对象则就是于java中的正常对象一样
 
 #### 原型链
 
@@ -97,6 +143,83 @@ teacher.drink();
 ![1686899053474](./JS逆向.assets/1686899053474.jpg)
 
 ![1686899138686](./JS逆向.assets/1686899138686.jpg)
+
+### 对象常用方法
+
+```js
+// Object对象方法
+// Object.create()：创建一个对象【实例对象】
+// Object.is()：判断两个对象【实例对象】是否是同一个对象
+// obj.hasOwnProperty：判断对象【实例对象】是否包含具体属性，有则返回True，无则返回false，可以使用下面的方法代替
+// Object.getOwnPropertyDescriptor():返回指定对象【实例对象】上一个自有属性对象的属性描述符，有则返回，无则返回undefined
+// Object.getOwnPropertyDescriptors()：获取一个对象自身所有属性的描述符
+// Object.getPrototypeOf()：获取实例对象的原型对象
+// Object.setPrototypeOf()：设置一个指定的原型对象给传入的实例对象
+// Object.prototype.toString.call()：获取传入对象的类型，比typeof要准确，typeof在面的数组时返回的也是Object类型
+// Object.defineProperty()：在一个对象【实例对象】上添加或重置一个属性【已有则重置，没有则添加】
+
+// 使用Document的原型对象创建一个实例对象a，create中的参数必须是一个原型对象
+let a=Object.create(Document.prototype)
+console.log(a)
+//判断对象是否相同，这里的相同与否应该是比对的地址
+let b={}
+let c={}
+console.log(Objcet.is(b,c)) // false，二者地址不同
+
+// 但是window这个对象会和很多对象都是同一个地址
+console.log(Objcet.is(window,self)) // true
+console.log(Objcet.is(window,top)) // true
+console.log(Objcet.is(window.self,self.top.window)) // true
+
+// 获取document对象的属性描述符，注意：document和Document二者并不相同。同时这里的属性描述符既有方法的，又有属性的
+// 具体的原型链是：Object->EventTarget->Node->Document->HTMLDocument—>document
+// 而cookie这个属性是Document原型中声明的，所以如果是用Object.getOwnPropertyDescriptor(document,"cookie")是拿不到的
+console.log(Object.getOwnPropertyDescriptor(document,"cookie")) //undefined
+// 但是location这个属性则是cookie下的
+console.log(Object.getOwnPropertyDescriptor(document,"location")) //Location Object
+//使用__proto__找到其祖类的原型对象
+console.log(Object.getOwnPropertyDescriptor(document.__proto__.__proto__,"cookie")) //cookie Object
+// 同时需要注意的是Object.getOwnPropertyDescriptor(document,"location")方法的第一个参数既可以是实例对象又可以是原型对象，如果是实例对象则给出值依照实例对象初始化时的值。如果是原型对象则给出的值是原型对象的初始值。
+
+// 获取传入对象全部的属性描述符
+console.log(Object.getOwnPropertyDescriptors(document))
+
+
+// Object.prototype.toString.call()需要传入的参数是一个实例对象。
+console.log(Object.prototype.toString.call([]))// [Object Array]
+```
+
+
+
+```js
+// Object.defineProperty()在一个对象【实例对象】上添加或重置一个属性【已有则重置，没有则添加】
+// 该方法就是在hook中最常用的一种方法。
+let user={
+    "name":"test",
+}
+let temp=15;
+// 传入的是三个参数分别是：需要赋值的对象【实例对象】，想要赋值的属性的名字，对这个属性的一系列描述符（本身也是一个对象）
+Object.defineProperty(user,"age",{
+    //主要有一下四个属性，其中get，set方法较为重要，一般使用这两个方法进行hook
+    // 设置的属性是否可以使用for循环遍历到，一般使用user.age=12和user{"age":"12"}这两种赋值方法时默认都是置为true的
+    // 如果置为false，则该属性无法被for循环遍历到
+    enumerable:true,
+    // 是否可配置，如果这里置为false，则后续在对这个属性的任何修改操作都是会报错。
+    configuration:true,
+    // 获取方法，当对象使用let age=user.age这种获取操作时被调用。
+    get:function(){
+        console.log("正在获取值");
+        return temp;
+    },
+    // 设置方法，当对象使用user.age=16这种设置操作是被调用。
+    // 这里需要注意不要直接在set方法里面使用this.age=16这种操作，因为会无限递归下去
+    // 想要设置值，需要在外面顶一个临时变量，并使用临时变量进行赋值。
+    set:function(value){
+    	consolle.log("正在设置值")
+    	temp=value;
+	}
+})
+```
 
 ## JS补环境
 
