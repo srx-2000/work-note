@@ -268,6 +268,10 @@ delete navigator; 会被拦截并触发 deleteProperty funC
 
 ​	目前补环境最主流的还是利用第二种方式进行。
 
+### proxy代理与reflect反射
+
+
+
 ### 实战
 
 
@@ -319,7 +323,7 @@ function a() {
     function b(a) {
         return a
     }
-//hook b的argument a为5的时候大断点
+//hook b的argument a为5的时候打断点
     b_bk = b;
     b = function (val) {
         if (val === 5) {
@@ -345,9 +349,9 @@ a()
 (function () {
     // 严谨模式 检查所有错误
     'use strict';
-    // document 为要hook的对象 这里是hook的cookie
+    // Document 为要hook的对象 这里是hook的cookie
     var cookieTemp = "";
-    Object.defineProperty(document, 'cookie', {
+    Object.defineProperty(Document, 'cookie', {
         // hook set方法也就是赋值的方法
         set: function (val) {
             // 这样就可以快速给下面这个代码行下断点
@@ -436,6 +440,333 @@ Object.defineProperty(obj,'attr',{
         return .....
     }
 })
+```
+
+### 补充
+
+​	hook的本质上就是利用了js对于同一个函数名称的覆盖能力，使得我们可以自己定义一个与要hook的原函数同名的函数，并在这个同名函数中做一些操作：原函数执行前后输出日志、修改传入参数和结果、利用if(false)这种不可达判断过掉无效代码等。而这里需要说明一点的是，由于我们需要声明一个与原函数同名的函数，所以在声明前，需要将原函数保存在一个临时变量里，方便后续使用该变量对原函数进行调用。
+
+​	hook的时机，一般hook都需要在页面刚刚加载的时候运行，而在浏览器环境下这个时机可以使用：`开发者工具->事件监听断点->脚本->脚本的第一个执行语句`处勾选，当勾选了该选项之后，我们点击进入我们要hook的网页，并且在控制台处观察debug堆栈【如下图】，直到堆栈顶层位`top`即可以开始编写hook脚本，并运行。当然该方法仅用于浏览器自带的全局函数，如果是一些网站js脚本中自己定义的函数，则需要定位到具体函数，并在该函数调用前打上断点，并编写hook代码【这点还不确定，后续再看看】。
+
+![image-20230802094821090](./JS逆向.assets/image-20230802094821090.png)
+
+![image-20230802094844166](./JS逆向.assets/image-20230802094844166.png)
+
+#### 简单的hook函数保护
+
+​	上面说了hook函数本身就是对原函数的一种覆写，所以有些网站会对hook有一定的检测
+
+> 检测方法就是利用：Function.prototype.toString.call(function name)的方法输出整个原函数代码，然后检测输出的原函数代码是否发生了变化，如果你hook了，那肯定代码中就包含了你hook的那部分添加代码，那么此时你就被检测出来了，人家就会走另一套逻辑，所以为了防止hook函数被发现，这里就有了hook函数保护
+
+**实例**
+
+```js
+// 其实本质也很简单，既然他那边调用了Function.prototype.toString.call(function name)方法获取源代码，那么我们将这个函数也覆写了就OK了
+Function.prototpye.toString=function(){
+    // 这里以一些浏览器自带的native代码为例，如果有对其他函数检测的，同理，直接将原函数的源代码输出并返回即可。
+    // 这里的${this.name}是一个模板字符串，this代指调用了上述方法的函数，所以this.name=function name
+    return `function ${this.name}() { [native code] }`;
+}
+```
+
+#### 函数native化
+
+相当于是上面那个保护的升级版，直接将hook函数的toString、Function.prototype.toString.call等方法输出的结果改为`function ${this.name}() { [native code] }`
+
+```js
+//!function(){}()为自执行函数，为了避免setNative这种方法写在外面时会污染其他函数环境
+!function () {
+    // 获取到原toString方法
+    const $toString = Function.prototype.toString;
+    // 定义一个Symbol变量，使其后续在作为key的时候在外部无法访问。
+    const symbol = Symbol()
+    // 定义自己的toString方法，有函数调用toString方法时就会调用该方法，而当调用者为函数时，就会使用this[symbol]这个键，来获取其对应的值【这个值在下面的set_native中被设为了function ${funcName || func.name || ''}() { [native code] }】，而当this[symbol]也是false时【即当没有调用setNative(add, "add")这个方法时】则返回原toString方法
+    const myToString = function () {
+        return typeof this === 'function' && this[symbol] || $toString.call(this);
+    }
+	// 给传入的函数绑定一个键位key，值为value的属性。
+    function set_native(func, key, value) {
+        Object.defineProperty(func, key, {
+            enumerable: false,
+            configurable: true,
+            writable: true,
+            value: value
+        })
+    }
+	// 删掉原有的toString方法
+    delete Function.prototype.toString;
+    // 将函数的toString方法覆写成我们自己写的那个toString方法
+    set_native(Function.prototype, "toString", myToString);
+    // 将函数的toString的toString方法覆写成native方法
+    set_native(Function.prototype.toString, symbol, "function toString() { [native code] }");
+    // globalThis===window===global，是一个全局变量，这里就是将setNative设为全局方法
+    globalThis.setNative = function (func, funcName) {
+        // 如果没有传入funcName，则默认用this.name，如果没找到this.name，则使用''
+        set_native(func, symbol, `function ${funcName || func.name || ''}() { [native code] }`);
+    }
+}()
+
+add = function (a, b) {
+    return a + b
+}
+
+setNative(add, "add")
+console.log(add.toString())
+console.log(Function.prototype.toString.call(add))
+```
+
+#### 函数重命名
+
+```
+renameFunc = function (func, newName) {
+    Object.defineProperty(func, "name", {
+        configurable: true,
+        writable: false,
+        enumerable: false,
+        value: newName
+    })
+}
+
+add = function (a, b) {
+    return a + b
+}
+console.log(add.name)
+renameFunc(add, "new Add")
+console.log(add.name)
+```
+
+### hook框架
+
+```js
+hook = function (func, funcInfo, isDebug, onEnter, onLeave, isExec) {
+    // func: 原函数，真正hook的函数
+    // func_info: 一个自定义对象，用于辅助日志输出：{objName:"",funcName:""}
+    // isDebug: 是否进行debugger，布尔类型
+    // onEnter: 回调函数，在原函数执行前执行的回调函数，可以修改原函数入参，或打印入参
+    // onLeave: 回调函数，在原函数执行后执行的回调函数，可以修改原函数返回值，或原函数执行的返回值
+    // isExec: 布尔类型，是否执行原函数。可以过无限debugger
+    if (typeof func !== "function") {
+        return func;
+    }
+    if (funcInfo === undefined) {
+        funcInfo = {};
+        funcInfo.objName = "globalThis";
+        funcInfo.funcName = func.name || '';
+    }
+    if (isDebug === undefined) {
+        isDebug = false;
+    }
+    if (!onEnter) {
+        onEnter = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 即将进入，参数=${JSON.stringify(obj.args)}`);
+        }
+    }
+    if (!onLeave) {
+        onLeave = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 执行完成，结果=${obj.result}`);
+        }
+    }
+    if (isExec === undefined) {
+        isExec = true;
+    }
+    // 覆写函数，用该函数覆写原函数，从而实现hook
+    hookFunction = function () {
+        if (isDebug) {
+            debugger;
+        }
+        let obj = {}
+        obj.args = []
+        for (let i = 0; i < arguments.length; i++) {
+            obj.args[i] = arguments[i]
+        }
+        // 原函数调用前，这里的this是调用了这个hook函数的函数，也就是func这个参数所代表的函数本身，下面的this同理
+        onEnter.call(this, obj)
+        // 原函数调用中
+        let result;
+        if (isExec) {
+            result = func.apply(this, obj.args)
+        }
+        obj.result = result
+        // 原函数调用后
+        onLeave.call(this, obj)
+        return obj.result
+    }
+    // 返回hook后的函数本身，这样后续在使用hook这个函数得到的就是一个可执行的函数
+    return hookFunction
+}
+
+function add(a, b) {
+    return a + b
+}
+
+console.log(`hook之前返回值=${add(1, 3)}`)
+// 注意这里hook(add)的返回值是一个函数，是hook之后的函数本身，它本身是可以调用的，
+// 同时需要注意hook(add)这个返回值的接收着的名字必须要与原函数同名，因为hook本身就是一种覆写
+// 所以两个函数需要同名，而在调用完add = hook(add)后，再调用的add就是hookFunction这个函数了
+onEnter = function (obj) {
+    console.log(`在hook函数外调用回调函数onEnter，获取到入参为${obj.args}`)
+    obj.args[0] = 9
+    console.log(`在hook函数外调用回调函数onEnter，将第一个入参修改为${obj.args[0]}`)
+
+}
+onLeave = function (obj) {
+    console.log(`在hook函数外调用回调函数onLeave`)
+    obj.result = 10
+    console.log(`在hook函数外调用回调函数onLeave，将最终结果修改为${obj.result}`)
+}
+funcInfo = {
+    objName: "obj",
+    funcName: "add"
+}
+// 是否调试
+isDebug = false
+isExec = true
+add = hook(add, funcInfo, isDebug, onEnter, onLeave, isExec)
+
+console.log(`hook之后返回值=${add(1, 3)}`)
+console.log(add.toString())
+```
+
+### 整合【hook框架+函数native化+函数重命名】
+
+```js
+// 定义一个全局变量，后续的hook方法和setNative方法都作为这个对象的方法进行声明与调用，可以避免环境污染
+beier = {}
+// 函数native化
+!function () {
+    const $toString = Function.prototype.toString;
+    const symbol = Symbol()
+    const myToString = function () {
+        return typeof this === 'function' && this[symbol] || $toString.call(this);
+    }
+
+    function set_native(func, key, value) {
+        Object.defineProperty(func, key, {
+            enumerable: false,
+            configurable: true,
+            writable: true,
+            value: value
+        })
+    }
+
+    delete Function.prototype.toString;
+    set_native(Function.prototype, "toString", myToString);
+    set_native(Function.prototype.toString, symbol, "function toString() { [native code] }");
+    beier.setNative = function (func, funcName) {
+        set_native(func, symbol, `function ${funcName || func.name || ''}() { [native code] }`);
+    }
+}()
+
+
+// 函数重命名
+beier.renameFunc = function (func, newName) {
+    Object.defineProperty(func, "name", {
+        configurable: true,
+        writable: false,
+        enumerable: false,
+        value: newName
+    })
+}
+
+
+// hook插件
+hook = function (func, funcInfo, isDebug, onEnter, onLeave, isExec) {
+    // func: 原函数，真正hook的函数
+    // func_info: 一个自定义对象，用于辅助日志输出：{objName:"",funcName:""}
+    // isDebug: 是否进行debugger，布尔类型
+    // onEnter: 回调函数，在原函数执行前执行的回调函数，可以修改原函数入参，或打印入参
+    // onLeave: 回调函数，在原函数执行后执行的回调函数，可以修改原函数返回值，或原函数执行的返回值
+    // isExec: 布尔类型，是否执行原函数。可以过无限debugger
+    // 初始化
+    if (typeof func !== "function") {
+        return func;
+    }
+    if (funcInfo === undefined) {
+        funcInfo = {};
+        funcInfo.objName = "globalThis";
+        funcInfo.funcName = func.name || '';
+    }
+    if (isDebug === undefined) {
+        isDebug = false;
+    }
+    if (!onEnter) {
+        onEnter = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 即将进入，参数=${JSON.stringify(obj.args)}`);
+        }
+    }
+    if (!onLeave) {
+        onLeave = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 执行完成，结果=${obj.result}`);
+        }
+    }
+    if (isExec === undefined) {
+        isExec = true;
+    }
+    // 覆写函数，用该函数覆写原函数，从而实现hook
+    hookFunction = function () {
+        if (isDebug) {
+            debugger;
+        }
+        let obj = {}
+        obj.args = []
+        for (let i = 0; i < arguments.length; i++) {
+            obj.args[i] = arguments[i]
+        }
+        // 原函数调用前，这里的this是调用了这个hook函数的函数，也就是func这个参数所代表的函数本身，下面的this同理
+        onEnter.call(this, obj)
+        // 原函数调用中
+        let result;
+        if (isExec) {
+            result = func.apply(this, obj.args)
+        }
+        obj.result = result
+        // 原函数调用后
+        onLeave.call(this, obj)
+        return obj.result
+    }
+    // hook保护【伪装】
+    //使用函数native，将hook函数native化
+    beier.setNative(hookFunction, funcInfo.funcName)
+    //使用函数重命名，将hook函数名称改为hook的原函数的名字
+    beier.renameFunc(hookFunction, funcInfo.funcName)
+    // 返回hook后的函数本身，这样后续在使用hook这个函数得到的就是一个可执行的函数
+    return hookFunction
+}
+
+//演示
+function add(a, b) {
+    return a + b
+}
+
+console.log(`hook之前返回值=${add(1, 3)}`)
+// 注意这里hook(add)的返回值是一个函数，是hook之后的函数本身，它本身是可以调用的，
+// 同时需要注意hook(add)这个返回值的接收着的名字必须要与原函数同名，因为hook本身就是一种覆写
+// 所以两个函数需要同名，而在调用完add = hook(add)后，再调用的add就是hookFunction这个函数了
+onEnter = function (obj) {
+    console.log(`在hook函数外调用回调函数onEnter，获取到入参为${obj.args}`)
+    obj.args[0] = 9
+    console.log(`在hook函数外调用回调函数onEnter，将第一个入参修改为${obj.args[0]}`)
+
+}
+onLeave = function (obj) {
+    console.log(`在hook函数外调用回调函数onLeave`)
+    obj.result = 10
+    console.log(`在hook函数外调用回调函数onLeave，将最终结果修改为${obj.result}`)
+}
+funcInfo = {
+    objName: "obj",
+    funcName: "add"
+}
+// 是否调试
+isDebug = false
+isExec = true
+add = hook(add, funcInfo, isDebug, onEnter, onLeave, isExec)
+
+console.log(`hook之后返回值=${add(1, 3)}`)
+// 如果没有上面的hook保护，则这部分会暴露hook函数的源代码和名称，可以尝试注释保护代码看效果
+console.log(`测试native-prototype=${Function.prototype.toString.call(add)}`)
+console.log(`测试native-tostring=${add.toString()}`)
+console.log(`测试hook函数名称=${add.name}`)
 ```
 
 
