@@ -363,3 +363,36 @@ git commit -m "fix conflict with rebase"
 反选符是：`!`
 
 其余部分就是一个简单的路径匹配，想要忽略啥，就往里面放想要忽略的路径即可，配合好通配符和反选符就行，每行一个【或一批（一批时是使用通配符匹配的一批，而不是堆堆在一起）】匹配对象。
+
+## 设置代理
+
+​	设置代理在有梯子的情况下可以极大的解决github上传或下载速度慢的问题，但是要注意代理设置的模式，全局代理在电脑上有多个不同网络环境的前提下不建议使用。
+
+### 方法一：命令行配置
+
+```bash
+# 设置全局代理，其中10809可在代理服务器设置中查询到
+git config --global http.proxy http://127.0.0.1:10809
+git config --global http.proxy https://127.0.0.1:10809
+# 设置局部代理，在相应的库下使用
+git config http.proxy http://127.0.0.1:10809
+git config http.proxy https://127.0.0.1:10809
+
+# 取消全局代理
+git config --global --unset http.proxy
+git config --global --unset https.proxy
+# 取消局部代理
+git config --unset http.proxy
+git config --unset https.proxy
+```
+
+### 方法二：配置文件配置
+
+​	首先找到用户目录【C:\Users\160】下的`.gitconfig`文件打开，添加下面的脚本
+
+```.gitconfig
+[http "https://github.com"]
+	proxy = http://localhost:10809
+	sslVerify = false
+```
+
