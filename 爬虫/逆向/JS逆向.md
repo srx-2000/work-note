@@ -1,5 +1,7 @@
 # JS逆向
 
+[TOC]
+
 ## JS相关概念
 
 ### 浏览器环境
@@ -444,7 +446,7 @@ Object.defineProperty(obj,'attr',{
 
 ### 补充
 
-​	hook的本质上就是利用了js对于同一个函数名称的覆盖能力，使得我们可以自己定义一个与要hook的原函数同名的函数，并在这个同名函数中做一些操作【但是同理，当一个函数或一个属性是不可修改的，**即当configurable=false时则无法hook**】：原函数执行前后输出日志、修改传入参数和结果、利用if(false)这种不可达判断过掉无效代码等。而这里需要说明一点的是，由于我们需要声明一个与原函数同名的函数，所以在声明前，需要将原函数保存在一个临时变量里，方便后续使用该变量对原函数进行调用。
+​	hook的本质上就是利用了js对于同一个函数名称的覆盖能力【准确来说hook本质就是】，使得我们可以自己定义一个与要hook的原函数同名的函数，并在这个同名函数中做一些操作【同理，当一个函数或一个属性是不可修改的，**即当configurable=false时则无法hook**】：原函数执行前后输出日志、修改传入参数和结果、利用if(false)这种不可达判断过掉无效代码等。而这里需要说明一点的是，由于我们需要声明一个与原函数同名的函数，所以在声明前，需要将原函数保存在一个临时变量里，方便后续使用该变量对原函数进行调用。
 
 ​	hook的时机，一般hook都需要在页面刚刚加载的时候运行，而在浏览器环境下这个时机可以使用：`开发者工具->事件监听断点->脚本->脚本的第一个执行语句`处勾选，当勾选了该选项之后，我们点击进入我们要hook的网页，并且在控制台处观察debug堆栈【如下图】，直到堆栈顶层位`top`即可以开始编写hook脚本，并运行。当然该方法仅用于浏览器自带的全局函数，如果是一些网站js脚本中自己定义的函数，则需要定位到具体函数，并在该函数调用前打上断点，并编写hook代码【这点还不确定，后续再看看】。
 
@@ -769,7 +771,175 @@ console.log(`测试native-tostring=${add.toString()}`)
 console.log(`测试hook函数名称=${add.name}`)
 ```
 
+### 整合2【整合1+hookObj】
 
+​	有了以下框架之后，再想hook某一个对象的某一个属性的时候就可以直接使用`beier.hookObj()`即可，如果想要hook一个对象中的所有属性的话使用一个for循环配合`Object.getOwnPropertyDescriptors()`即可。
+
+```js
+// 定义一个全局变量，后续的hook方法和setNative方法都作为这个对象的方法进行声明与调用，可以避免环境污染
+beier = {}
+// 函数native化
+!function () {
+    const $toString = Function.prototype.toString;
+    const symbol = Symbol()
+    const myToString = function () {
+        return typeof this === 'function' && this[symbol] || $toString.call(this);
+    }
+
+    function set_native(func, key, value) {
+        Object.defineProperty(func, key, {
+            enumerable: false, configurable: true, writable: true, value: value
+        })
+    }
+
+    delete Function.prototype.toString;
+    set_native(Function.prototype, "toString", myToString);
+    set_native(Function.prototype.toString, symbol, "function toString() { [native code] }");
+    beier.setNative = function (func, funcName) {
+        set_native(func, symbol, `function ${funcName || func.name || ''}() { [native code] }`);
+    }
+}()
+
+// 函数重命名
+beier.renameFunc = function (func, newName) {
+    Object.defineProperty(func, "name", {
+        configurable: true, writable: false, enumerable: false, value: newName
+    })
+}
+
+// hook插件
+beier.hook = function (func, funcInfo, isDebug, onEnter, onLeave, isExec) {
+    // func: 原函数，真正hook的函数
+    // func_info: 一个自定义对象，用于辅助日志输出：{objName:"",funcName:""}
+    // isDebug: 是否进行debugger，布尔类型
+    // onEnter: 回调函数，在原函数执行前执行的回调函数，可以修改原函数入参，或打印入参
+    // onLeave: 回调函数，在原函数执行后执行的回调函数，可以修改原函数返回值，或原函数执行的返回值
+    // isExec: 布尔类型，是否执行原函数。可以过无限debugger
+    if (typeof func !== "function") {
+        return func;
+    }
+    if (funcInfo === undefined) {
+        funcInfo = {};
+        funcInfo.objName = "globalThis";
+        funcInfo.funcName = func.name || '';
+    }
+    if (isDebug === undefined) {
+        isDebug = false;
+    }
+    if (!onEnter) {
+        onEnter = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 即将进入，参数=${JSON.stringify(obj.args)}`);
+        }
+    }
+    if (!onLeave) {
+        onLeave = function (obj) {
+            console.log(`{hook | ${funcInfo.objName} [${funcInfo.funcName}] 执行完成，结果=${obj.result}`);
+        }
+    }
+    if (isExec === undefined) {
+        isExec = true;
+    }
+    // 覆写函数，用该函数覆写原函数，从而实现hook
+    hookFunction = function () {
+        if (isDebug) {
+            debugger;
+        }
+        let obj = {}
+        obj.args = []
+        for (let i = 0; i < arguments.length; i++) {
+            obj.args[i] = arguments[i]
+        }
+        // 原函数调用前，这里的this是调用了这个hook函数的函数，也就是func这个参数所代表的函数本身，下面的this同理
+        onEnter.call(this, obj)
+        // 原函数调用中
+        let result;
+        if (isExec) {
+            result = func.apply(this, obj.args)
+        }
+        obj.result = result
+        // 原函数调用后
+        onLeave.call(this, obj)
+        return obj.result
+    }
+    // hook保护【伪装】
+    //使用函数native，将hook函数native化
+    beier.setNative(hookFunction, funcInfo.funcName)
+    //使用函数重命名，将hook函数名称改为hook的原函数的名字
+    beier.renameFunc(hookFunction, funcInfo.funcName)
+    // 返回hook后的函数本身，这样后续在使用hook这个函数得到的就是一个可执行的函数
+    return hookFunction
+}
+
+// 该工具在运行完成后没有报错就证明hook成功了，后续再对hook的对象的响应属性进行修改，获取等操作时就会有一定的输出
+beier.hookObj = function (obj, objName, propName, isDebug) {
+    // obj：需要hook的对象，这里传入的是一个原型对象
+    // objName：hook对象的名字，这个名称就与传入的原型对象名相同即可
+    // propName：需要hook的对象属性名，想要hook上面那个原型的那个属性，这里就传哪个属性名
+    // isDebug：是否需要debugger
+
+    // 根据传入的属性名获取对应的属性描述符【就是configuration，get,set那几个】
+    let oldDescriptor = Object.getOwnPropertyDescriptor(obj, propName);
+    // 定义一个新的描述符，为了后面替换
+    let newDescriptor = {};
+    // 如果原对象是不可修改的，则证明此时不可以hook，直接返回
+    // 注意：要区分configurable和writable的区别
+    // configurable是判断这个属性描述符是否可以修改，
+    // 而writable则是判断这个实例对象中的属性值是否可以修改
+    if (!oldDescriptor.configurable) {
+        return;
+    }
+    // 必要属性描述符的赋值
+    // 如果上面那个判断通过了，那么我们也将自己声明出来的描述符的configurable置为true
+    newDescriptor.configurable = true;
+    // 使新声明的对象描述符的enumerable等于老的的enumerable
+    newDescriptor.enumerable = oldDescriptor.enumerable;
+    // 如果属性描述符中有writable这个属性，则让新的等于老的
+    // 这里之所以要做一个判断，是因为writable这个属性并不像上面两属性一样一定存在
+    if (oldDescriptor.hasOwnProperty("writable")) {
+        newDescriptor.writable = oldDescriptor.writable;
+    }
+    if (oldDescriptor.hasOwnProperty("value")) {
+        // 获取传入对象以及传入属性的真实值，如果传入的propName对应的是传入对象中的一个方法，
+        // 则就会返回一个函数。如果传入的propName对应的是一个数值，则返回的就是一个数值【对象同理】
+        let value = oldDescriptor.value
+        // 如果传入的对象的这个属性不是一个函数，则直接返回，如果是一个函数则hook
+        if (typeof value !== "function") {
+            return;
+        }
+        let funcInfo = {
+            "objName": objName,
+            "funcName": propName
+        }
+        // 如果老的属性描述符的value返回的是一个函数，则证明此时传入对象所对应的这个属性本身是一个函数。
+        // 那么此时我们调用之前写的hook插件替换掉原来的函数，
+        // 当然这里的替换并不是直接替换而是将结果赋值到新的属性描述符的value上。
+        newDescriptor.value = beier.hook(value, funcInfo, isDebug)
+    }
+    if (oldDescriptor.hasOwnProperty("get")) {
+        // 获取传入的属性的属性描述符中的get方法
+        let get = oldDescriptor.get
+        // 由于get本身必定是一个函数，所以就不需要判断是否为函数了
+        // 同时这里有一个注意点：get和set方法的函数名称都是get propertyName
+        let funcInfo = {
+            "objName": objName,
+            "funcName": `get ${propName}`
+        }
+        // hook并替换掉原有的get方法
+        newDescriptor.get = beier.hook(get, funcInfo, isDebug)
+    }
+    if (oldDescriptor.hasOwnProperty("set")) {
+        let set = oldDescriptor.set
+        let funcInfo = {
+            "objName": objName,
+            "funcName": `set ${propName}`
+        }
+        newDescriptor.set = beier.hook(set, funcInfo, isDebug)
+    }
+    // 用我们上面生成出来的新的属性描述符替换掉原对象中propName对应属性的属性描述符
+    Object.defineProperty(obj, propName, newDescriptor)
+
+}
+```
 
 ## 调试小技巧
 
