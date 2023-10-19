@@ -10,7 +10,7 @@
 
 ​	这里一般将环境分为两个大种类，一种是浏览器环境，另一种是Node环境。二者有部分交集，也有一些差异。而一般我们时长说的“补环境”，就是将Node环境中相较于浏览器环境中缺少的那部分补全，以使JS代码可以正确的运行。
 
-​	具体DOM和BOM基本操作的思维导图可以看[附录](#附录)的[BOM](#BOM)和[DOM](#DOM)
+​	具体DOM和BOM基本操作的思维导图可以看[附录](#附录-2)的[BOM](#BOM)和[DOM](#DOM)
 
 **浏览器环境**
 
@@ -92,7 +92,7 @@ student.introduce(); // 我是张三，考了99分。
    // 这里值得注意的有两点：
    // 1.使用User.prototype拿到的起始是原型对象
    // 2.上面在声明原型时，使用的是一个function，其中并没有定义construtor构造器，但是这里却可以用construtor来获取到原型本身
-   console.log(User.prototype.construtor);
+   console.log(User.prototype.constructor);
    
    // 使用实例对象获取原型对象【所以这里就可以发现上面说的其实有问题，上面说的原型本身其实是既包含了原型有包含了原型对象，不够准确】
    // 同时需要注意上面所说的显示对象，即prototype只能使用原型.prototype才可以调用，而隐式对象则也只能用实例对象.__proto__进行调用。
@@ -202,7 +202,7 @@ let user={
 let temp=15;
 // 传入的是三个参数分别是：需要赋值的对象【实例对象】，想要赋值的属性的名字，对这个属性的一系列描述符（本身也是一个对象）
 Object.defineProperty(user,"age",{
-    //主要有一下四个属性，其中get，set方法较为重要，一般使用这两个方法进行hook
+    // 主要有以下四个属性，其中get，set方法较为重要，一般使用这两个方法进行hook
     // 设置的属性是否可以使用for循环遍历到，一般使用user.age=12和user{"age":"12"}这两种赋值方法时默认都是置为true的
     // 如果置为false，则该属性无法被for循环遍历到
     enumerable:true,
@@ -272,11 +272,182 @@ delete navigator; 会被拦截并触发 deleteProperty funC
 
 ### proxy代理与reflect反射
 
-
+​	proxy代理与reflect一般是搭配着使用，通过proxy对一个对象代理，然后在这个代理的Handler对象中实现各种代理方法时使用reflect进行函数还原，以确保通过代理方法后的值与原函数的值相同。其实有点类似于hook中的`let tempFunc=Func; let result=tempFunc(param);return result;`，代理中的reflect就类似于hook中的tempFunc的作用。
 
 ### 实战
 
+#### 简单例子
 
+```js
+let User = {
+    "username": "beier",
+    "password": "beierer"
+}
+let Handler = {
+    get: function (target, prop, recevier) {
+        // target:被代理的对象
+        // prop:被代理对象调用属性时属性的名字
+        // recevier:经过new Proxy后的代理接收者，一般在后续使用的时候都会和下面的代码一样让他重新等于被代理对象本身，从而实现后续被代理对象再次被调用时可以通过我们自己写的get方法。
+        let result = Reflect.get(target, prop, recevier)
+        // 这里之所以使用prop.toString是因为有时对象属性的key是使用symbol这个对象声明的。
+        console.log(`[${prop.toString()}]==>【${result}】`)
+        return result;
+    }
+}
+User = new Proxy(User, Handler)
+console.log(User.username)
+```
+
+#### 大致框架
+
+```js
+// 该框架只是理论上的，实际用“实际代理代码”下面的代码的情况可能更多一些。
+beier = {}
+
+beier.proxy = function (proxyObj, proxyObjName, isProxy) {
+    if (!isProxy) {
+        return proxyObj
+    }
+    let headerHandler = {
+        get: function (target, prop, receiver) {
+            // 参数说明：
+            // 1.target:被代理的对象，也就是new Proxy(Obj,Handler)中的Obj
+            // 2.prop:代理的属性
+            // 3.receiver:代理后的对象，也就是new proxy(Obj,Handler)之后返回的那个对象
+            let result = Reflect.get(target, prop, receiver)
+            console.log(`正在get|【${proxyObjName}】对象的属性==>${prop.toString()}，结果为==>[${result}]`)
+            return result
+        },
+        set: function (target, prop, value, receiver) {
+            let result = Reflect.set(target, prop, value, receiver)
+            console.log(`正在set|【${proxyObjName}】对象的属性==>${prop.toString()}，设置的值为==>${value}，结果为==>[${result}]`)
+            return result
+        },
+        getOwnPropertyDescriptor: function (target, propKey) {
+            // 1.target:被代理的对象
+            // 2.propKey:被代理对象的属性名
+            let result = Reflect.getOwnPropertyDescriptor(target, propKey)
+            if (result === undefined) {
+                console.log(`正在getOwnPropertyDescriptor|对象【${proxyObjName}】并没有==>${propKey}属性`)
+            } else {
+                console.log(`正在getOwnPropertyDescriptor|【${proxyObjName}】对象的属性描述符==>${propKey.toString()}，结果为==>[${result}]`)
+            }
+        },
+        defineProperty: function (target, prop, descriptor) {
+            // 1.target:被代理对象
+            // 2.prop:属性
+            // 3.descriptor:属性对应的描述符
+            let result = Reflect.defineProperty(target, prop, descriptor)
+            console.log(`正在defineProperty|【${proxyObjName}】对象的属性==>${prop.toString()}，结果为==>[${result}]`)
+            return result;
+        },
+        // 由于一般代理的都是一个对象，所以这个函数很少被用到，一般只有代理的对象是一个函数时，且该函数被调用时才会调用这个代理
+        apply: function (target, thisArgs, argsList) {
+            // 参数说明：
+            // 1.target:被代理的函数
+            // 2.argsThis:调用这个函数的那个this。
+            // 3.argsList:调用函数时传入的参数列表
+            let result = Reflect.apply(target, thisArgs, argsList)
+            console.log(`正在apply|【${proxyObjName}】对象的函数==>${target.name},调用者==>${thisArgs},参数列表==>${argsList},结果为==>[${result}]`)
+            return result
+        },
+        construct: function (target, argArray, newTarget) {
+            // target: 函数对象
+            // argArray: 构造参数列表
+            // newTarget: 代理对象
+            let result = Reflect.construct(target, argArray, newTarget)
+            console.log(`正在construct|【${proxyObjName}】构造参数==>[${argArray.toString()}]`)
+            return result
+        }
+    }
+    proxyObj = new Proxy(proxyObj, headerHandler)
+    return proxyObj;
+}
+window=beier.proxy(window,"window",true)
+```
+
+#### 实际代理代码
+
+​	这里之所以在有了大致框架后依然有一个实际代理应用的子标签是因为，虽然上面的框架涉及了很多的代理方法，但是真正在补环境时应用的应该是这个标签下的代码。其本质原因是一般在进行补环境时我们都是使用一个环境名称的字符数组。这个数组中的元素都是字符串，而字符串是无法作为对象放到`new Proxy(Obj,Handler)`的Obj的位置上的，所以这里需要使用eval函数，并且整个代码需要拼接成一个字符串放到eval函数中。
+
+```js
+// 这里的环境数组并没有包含所有，这里只是知乎补环境时需要的，实际上这个数组可以通过不断的积累逐渐补全，从而在最终形成一个浏览器全环境数组。
+let env_list = ["window", "Document", "document", "navigator", "location", "history", "screen", "div", "script", "canvas", "CanvasRenderingContext2D"]
+function proxyEnv(env_list) {
+    for (let i = 0; i < env_list.length; i++) {
+        console.log(env_list[i])
+        eval(env_list[i] + '= new Proxy(' + env_list[i] + `,
+        {
+            get(target, key, receiver)
+            {
+                let result = Reflect.get(target, key, receiver)
+                console.log('【' + env_list[i] + '】取属性' + key + '值:' + result);
+                console.log('=======================')
+                return target[key];
+            }
+        }
+        )
+        ;`)
+    }
+}
+proxyEnv(env_list)
+```
+
+#### 实际补环境操作
+
+具体的实际操作可以看这个[视频](https://www.bilibili.com/video/BV1fr4y1R7XQ/?spm_id_from=333.880.my_history.page.click)，这里给出一个大概的流程：
+
+1. 找到加密的的js代码，并且整段的复制下来保存到本地。
+
+2. 补充相关函数及代码，确定保存下来的代码可以完成最基本的运行
+
+3. 在文件中添加[代理代码](#实际代理代码)并运行
+
+4. 正常来说就会输出某某对象调用了什么，如：`windows取属性__ZH__值：undefined`
+
+   > **注意：**
+   >
+   > 1. 这里的`__ZH__`是知乎在加密时会用到的一个window下的对象，如果是别的网页并不一定会有
+   > 2. 调用**代理代码**时传入的环境列表就是会检测的并输出的，如果在其他网页补环境的时候有其他需要检测的点需要进一步补充这个环境列表
+
+5. 根据上面检测输出的属性名，我们需要到浏览器中打上断点，并使用copy()函数将对应的结果复制出来
+
+6. 在本地的脚本中添加相对应的属性，如：
+
+   ```js
+   let window={};
+   window.__ZH__={[1,2,3......]};
+   window.name="";
+   ```
+
+7. 然后便是不断的循环上述操作，知道输出正确的结果。但是同时需要有一些注意点
+
+   > **注意：**
+   >
+   > 1. 如果在代理的时候发现他有使用document的createElement，那此时就需要写一个hook函数来hook一下这个函数【详情见[附录](#附录-1)】。但是大概率是有对canvas的检测。
+   > 2. 如果有对canvas的检测的话，大概率是对CanvasRenderingContext2D这个对象的检测，这个也就是最常见的画布指纹检测。
+   > 3. 在补普通代理得到对象时，如果没有特殊需求直接补一个{}即可，即空对象。同样的如果遇见对某个函数的检测时，可以去控制台直接调用这个函数，如果调用失败亦或是调用之后返回的是`function toString() { [native code] }`那么此时就可以补充一个同名函数，但是返回值依旧写一个空对象即可。
+   > 4. 当然如果遇见了一些特殊的对象。如：在检测canvas就是调用了getContext()函数，而这个函数返回的值就是一个CanvasRenderingContext2D对象，此时我们就需要新声明一个CanvasRenderingContext2D的空对象，并且将CanvasRenderingContext2D加入到环境检测列表中【因为既然他被返回了，那后续有很大概率要用到它，此时我们就需要看看用到他的地方到底用了他的什么属性或者函数】，而通过进一步补充CanvasRenderingContext2D对象和环境字符串，我们重新检测后发现主要调用CanvasRenderingContext2D这个对象的toString方法。而这个方法返回的是一个[object CanvasRenderingContext2D]，那么此时我们就可以给CanvasRenderingContext2D写一个toString方法，返回值就直接写[object CanvasRenderingContext2D]这个字符串就好。document的toString方法，window的toString方法等都是类似的。
+   > 5. 在补环境的时候如果遇见了输出的是constructor这个构造器属性，那么此时就不用管。
+   > 6. 如果补完了除constructor以外的所有输出为undefined的属性后，如果还没有输出正确的值。此时，我们可以考虑将本地脚本中包含try..catch..的地方的try catch给注释掉，让他的错误暴露出来。如：知乎在注释掉try..catch之后就暴露出window下还欠缺一个alter函数。
+
+##### 附录
+
+**document hook createElement**
+
+```js
+const createElementTemp = document.createElement;
+document.createElement = function (tagName) {
+    console.log(`正在创建==>${tagName}`)
+    // 主要是这里：并没有直接使用createElementTemp(tagName)，而是使用了apply
+    const result = createElementTemp.apply(document, arguments)
+    console.log(`已创建标签==>${result.outerHTML}`)
+    if(tagName=="canvas"){
+        debugger;
+    }
+    return result;
+}
+```
 
 ## 混淆与反混淆
 
@@ -976,3 +1147,14 @@ if (window.tl[window.tl.length - 1] == 31 && window.tl[window.tl.length - 2] == 
 ### DOM
 
 ![1686897169219](./JS逆向.assets/1686897169219.jpg)
+
+### JS运算符优先级
+
+![1697003436353](./JS逆向.assets/1697003436353.jpg)
+
+### Js逆向API参考文档
+
+```
+https://developer.mozilla.org/zh-CN/docs/Web/API/Navigator
+```
+
