@@ -4,7 +4,7 @@
 
 ## JS相关概念
 
-### 浏览器环境
+### 环境介绍
 
 ​	一般在做js逆向的时候肯定或多或少都听说过“补环境”，那么这个环境到底指的是什么？
 
@@ -223,9 +223,36 @@ Object.defineProperty(user,"age",{
 })
 ```
 
+#### 常用方法下的重要补充
+
+​	由于很多时候会直接跳转到常用方法下找函数，所以这里补充一个知识点，在js中如果一个对象在声明时使用的是一个函数，那么这个对象默认就是一个原型。而如果一个对象在声明时使用的`{}`的形式，那么就默认这个对象是一个实例对象。而二者在获取原型对象时所调用的方法是不同的。原型获取原型对象的方法是`.prototype`，实例对象在获取原型对象时的方法是`__proto__`。这个点在后续补环境的时候会用到比较多【补原型链】。
+
+​	同时这里说一个问题，在补原型链上的**方法**的时候补充方式应该使用以下的方式，而非`Object.defineProperties`或`Object.defineProperty`，原因也很简单：这两个方法是用来补属性的【见名知意】，而方法并不是原型链上的属性，而是**方法**【听君一席话如听一席话了属于是】。
+
+```js
+let User=function(){
+}
+// 这里比如我要给新声明的原型User的原型链上补充getUserName这个方法
+User.prototype.getUserName=function(){
+    return "beier"
+}
+// 同时这里需要注意的是：由于我在声明User时使用的是function的形式，所以其默认是一个原型【之所以是原型是因为，用于声明对象的函数被作为这个对象的构造函数了】，所以获取原型对象时使用的是.prototype。而下面的job则是使用字典的形式声明的对象，则默认是实例对象，此时获取原型对象时使用的就是.__proto__
+
+let job={}
+job.__proto__.getJob=function(){
+    return "好工作"
+}
+
+
+// 最后便是Object.defineProperty和Object.defineProperties的区别了
+// 二者主要的区别在于第一个函数是需要指定一个名字并补充到原型链上，而defineProperties则不需要指定，直接用一个大括号圈起来，批量的补充【补充的属性名字就作为key放到大括号中即可】。而二者在补充时都可以选择性的补充get、set、configurable、writable、enumerable
+```
+
+
+
 ## JS补环境
 
-目前补环境主要有两种主流手段：利用Proxy定制补环境、通过积累构造完美浏览器环境。[参考](https://www.cnblogs.com/spiderman6/p/16969391.html)可以学到很多东西，值得反复看看，尤其是实战部分，看看能不能学着构建一个自己的虚拟环境。
+​	目前补环境主要有两种主流手段：利用Proxy定制补环境、通过积累构造完美浏览器环境。[参考](https://www.cnblogs.com/spiderman6/p/16969391.html)可以学到很多东西，值得反复看看，尤其是实战部分，看看能不能学着构建一个自己的虚拟环境。还有[视频](https://www.bilibili.com/video/BV1t94y1f7Ex?p=37)这个框架搭建很厉害，现在实锤了上面那个参考文章里的东西就是这个视频里的东西，所以这个视频可以反复观看。
 
 ### 介绍
 
@@ -300,8 +327,9 @@ console.log(User.username)
 
 #### 大致框架
 
+该代码也可以用。
+
 ```js
-// 该框架只是理论上的，实际用“实际代理代码”下面的代码的情况可能更多一些。
 beier = {}
 
 beier.proxy = function (proxyObj, proxyObjName, isProxy) {
@@ -368,7 +396,7 @@ window=beier.proxy(window,"window",true)
 
 #### 实际代理代码
 
-​	这里之所以在有了大致框架后依然有一个实际代理应用的子标签是因为，虽然上面的框架涉及了很多的代理方法，但是真正在补环境时应用的应该是这个标签下的代码。其本质原因是一般在进行补环境时我们都是使用一个环境名称的字符数组。这个数组中的元素都是字符串，而字符串是无法作为对象放到`new Proxy(Obj,Handler)`的Obj的位置上的，所以这里需要使用eval函数，并且整个代码需要拼接成一个字符串放到eval函数中。
+​	这里之所以在有了大致框架后依然有一个实际代理应用的子标签是因为，虽然上面的框架涉及了很多的代理方法，但是真正在补环境时应用的应该是这个标签下的代码。其本质原因是一般在进行补环境时我们都是使用一个环境名称的字符数组。这个数组中的元素都是字符串，而字符串是无法作为对象放到`new Proxy(Obj,Handler)`的Obj的位置上的，所以这里需要使用eval函数，并且整个代码需要拼接成一个字符串放到eval函数中。当然如果手动的一条条的进行补充，也可以使用上面那个代码，此时放入new Proxy中的第一个参数就必须是一个对象，而这个对象则需要我们手动定义一个。
 
 ```js
 // 这里的环境数组并没有包含所有，这里只是知乎补环境时需要的，实际上这个数组可以通过不断的积累逐渐补全，从而在最终形成一个浏览器全环境数组。
@@ -395,7 +423,7 @@ proxyEnv(env_list)
 
 #### 实际补环境操作
 
-具体的实际操作可以看这个[视频](https://www.bilibili.com/video/BV1fr4y1R7XQ/?spm_id_from=333.880.my_history.page.click)，这里给出一个大概的流程：
+具体的实际操作可以看这个[视频](https://www.bilibili.com/video/BV1fr4y1R7XQ)【如果是使用第二个代码】，也可以看这个[视频](https://www.bilibili.com/video/BV1LT411D7L9/?p=10)【如果使用第一个代码】，这里给出一个大概的流程：
 
 1. 找到加密的的js代码，并且整段的复制下来保存到本地。
 
@@ -430,6 +458,8 @@ proxyEnv(env_list)
    > 4. 当然如果遇见了一些特殊的对象。如：在检测canvas就是调用了getContext()函数，而这个函数返回的值就是一个CanvasRenderingContext2D对象，此时我们就需要新声明一个CanvasRenderingContext2D的空对象，并且将CanvasRenderingContext2D加入到环境检测列表中【因为既然他被返回了，那后续有很大概率要用到它，此时我们就需要看看用到他的地方到底用了他的什么属性或者函数】，而通过进一步补充CanvasRenderingContext2D对象和环境字符串，我们重新检测后发现主要调用CanvasRenderingContext2D这个对象的toString方法。而这个方法返回的是一个[object CanvasRenderingContext2D]，那么此时我们就可以给CanvasRenderingContext2D写一个toString方法，返回值就直接写[object CanvasRenderingContext2D]这个字符串就好。document的toString方法，window的toString方法等都是类似的。
    > 5. 在补环境的时候如果遇见了输出的是constructor这个构造器属性，那么此时就不用管。
    > 6. 如果补完了除constructor以外的所有输出为undefined的属性后，如果还没有输出正确的值。此时，我们可以考虑将本地脚本中包含try..catch..的地方的try catch给注释掉，让他的错误暴露出来。如：知乎在注释掉try..catch之后就暴露出window下还欠缺一个alter函数。
+   > 7. 在补环境的时，有时可能会需要补充原型链上的一些属性和方法，这里需要注意的点可以看[这里](#常用方法下的重要补充)，同时这里还有一些细节：
+   >    1. 在补原型链上的东西的时候，最好是先声明一个临时对象，在新声明的临时对象上进行环境补充，然后再在下面将这个临时对象的原型对象赋值给真正用于后续js加密的那个对象上。这么做的原因是：有时会有一些全局变量，如果直接使用这些全局变量进行原型链上的补充，那么可能会导致所有与这个全局变量相关的变量都会同时更改，并且值都会应用最后一次的结果
 
 ##### 附录
 
@@ -439,7 +469,7 @@ proxyEnv(env_list)
 const createElementTemp = document.createElement;
 document.createElement = function (tagName) {
     console.log(`正在创建==>${tagName}`)
-    // 主要是这里：并没有直接使用createElementTemp(tagName)，而是使用了apply
+    // 主要是这里：并没有直接使用createElementTemp(tagName)，而是使用了apply，如果直接调用会报非法调用的错误。
     const result = createElementTemp.apply(document, arguments)
     console.log(`已创建标签==>${result.outerHTML}`)
     if(tagName=="canvas"){
@@ -448,6 +478,32 @@ document.createElement = function (tagName) {
     return result;
 }
 ```
+
+### 注意
+
+​	在补环境的时候有很多需要注意的点，以及一些小的细节这里统一说一下
+
+#### 注意
+
+1. 一般在刚开始学习补环境的时候，多是使用的node环境，而根据上面的[环境介绍](#环境介绍)，我们可以知道在真正运行加密脚本的时候都是使用的v8环境。
+
+   而这也就产生了一个需要注意的点：有很多比较难的加密都是有node环境的检测的。如：node、process、buffer、global等等。而且根据志远大佬视频中所说，node环境下是一定有几个监测点会被检测出于v8环境不同的【哪怕使用delete process这种脚本对上述监测点进行删除后】。故而在过一些检测比较严的网站时，是一定不要使用node环境的。
+
+   所以解决方案就是使用一个纯净的v8环境进行补环境操作，这里采用的是志远大佬教授的方式vm2。
+
+   ```bash
+   npm install vm2
+   ```
+
+
+
+#### 细节
+
+1. 上面的[实战](#实战)中大量的运用了代理【proxy】和反射【reflect】，而值得注意的一点是，我们在使用上面的代码时，都是使用代理代码，代理本地扣下来的脚本。而之所以主要代理的是本地脚本，是因为在真正的v8环境下有些对象是无法被代理的，如window。
+2. 环境检测的具体都检测了什么：
+   1. 各种ToString方法：各种函数的字符串输出
+   2. 原型链上的一些方法与属性：涉及Object.DefineProperty()等
+   3. dom环境：canvas指纹等
 
 ## 混淆与反混淆
 
@@ -1111,6 +1167,19 @@ beier.hookObj = function (obj, objName, propName, isDebug) {
 
 }
 ```
+
+## jsRPC
+
+主要参考[链接](https://blog.csdn.net/li11_/article/details/127658491)，文章中使用的[工具地址](https://github.com/jxhczhl/JsRpc)。
+
+中心主旨应该是使用浏览器环境调用本地的代码。以达到不用补环境，不用破解就可以得到加密的效果。
+
+### 基本流程
+
+1. 找到加密的具体位置，把加密代码扣下来保存到本地
+2. 搭建websocket服务和客户端。服务由浏览器通过保存下来的加密代码以及ws相关配置组成。而客户端则是python端的调度。python端在调度的时候只需要向浏览器中搭建好的ws服务发送消息，并接收返回的加密值即可
+
+
 
 ## 调试小技巧
 
