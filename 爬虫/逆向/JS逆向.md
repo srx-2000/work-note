@@ -230,13 +230,14 @@ Object.defineProperty(user,"age",{
 ​	同时这里说一个问题，在补原型链上的**方法**的时候补充方式应该使用以下的方式，而非`Object.defineProperties`或`Object.defineProperty`，原因也很简单：这两个方法是用来补属性的【见名知意】，而方法并不是原型链上的属性，而是**方法**【听君一席话如听一席话了属于是】。
 
 ```js
+// 这里需要纠个错，在js中所有东西都是对象。而方法本身即是原型又是实例对象。所以其实用方法声明的对象在获取原型对象时既可以使用prototype又可以使用__proto__
 let User=function(){
 }
 // 这里比如我要给新声明的原型User的原型链上补充getUserName这个方法
 User.prototype.getUserName=function(){
     return "beier"
 }
-// 同时这里需要注意的是：由于我在声明User时使用的是function的形式，所以其默认是一个原型【之所以是原型是因为，用于声明对象的函数被作为这个对象的构造函数了】，所以获取原型对象时使用的是.prototype。而下面的job则是使用字典的形式声明的对象，则默认是实例对象，此时获取原型对象时使用的就是.__proto__
+// 同时这里需要注意的是：由于我在声明User时使用的是function的形式，所以其默认是一个原型【这里是错的，这个User既是原型又是实例对象】，所以获取原型对象时使用的是.prototype，同样也可以使用__proto__。而下面的job则是使用字典的形式声明的对象，则默认是实例对象，此时获取原型对象时使用的就是.__proto__
 
 let job={}
 job.__proto__.getJob=function(){
@@ -246,6 +247,26 @@ job.__proto__.getJob=function(){
 
 // 最后便是Object.defineProperty和Object.defineProperties的区别了
 // 二者主要的区别在于第一个函数是需要指定一个名字并补充到原型链上，而defineProperties则不需要指定，直接用一个大括号圈起来，批量的补充【补充的属性名字就作为key放到大括号中即可】。而二者在补充时都可以选择性的补充get、set、configurable、writable、enumerable
+
+
+
+
+// 这里对原型和实例做一个区分辨别题
+let a={} //实例
+let b=Object() //实例
+let c=Object.create({}) //实例
+let d=new (function(){}) // 实例
+let e=function(){} //原型&实例
+let f=class f{} //原型&实例
+// 其实在区分时很简单，只要想着原型就类似于java中的类，而实例类似于java中的对象，原型对象就类似于java中有一些初始属性的类即可。
+
+
+// 然后就是__proto__这个属性本身的调用情况：
+// 实例调用__proto__返回的是这个实例的原型
+// 原型一般而言是无法调用__proto__方法的
+// 但是当一个原型有父类【引用一下java的概念】时，就可以调用__proto__，此时调用__proto__得到的值就是，父类的原型或实例。
+// 而上面说的最后一种情况就是经常说的原型链。
+
 ```
 
 
