@@ -500,6 +500,10 @@ document.createElement = function (tagName) {
 }
 ```
 
+**如何补dom**
+
+​	有很多时候需要补充dom，如：使用document.documentElement获取全部的dom，而后取其中的header或其他的dom元素。这种情况下直接补一个空对象{}即可，而后再看后续的脚本中需要这个dom元素的什么属性在补什么。
+
 ### 注意
 
 ​	在补环境的时候有很多需要注意的点，以及一些小的细节这里统一说一下
