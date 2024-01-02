@@ -138,6 +138,22 @@ frida -H 127.0.0.1:27042 -f com.hipu.yidian -l hook_so_test_1.js
 
 ​	返回当前真机【虚拟机】的Android版本。
 
+###### vm
+
+​	返回一个java虚拟机对象，包含以下三个方法：
+
+1. **perform(fn)**：
+
+   与`java.perform(fn)`效果一致。
+
+2. **getEnv()**：
+
+   获取当前线程的JNIEnv，如果当前线程没有attach到一个java虚拟机时，抛出异常。
+
+3. **tryGetEnv()**：
+
+   获取当前线程的JNIEnv，如果当前线程没有attach到一个java虚拟机时，返回null。
+
 ##### 方法
 
 ###### enumerateLoadedClasses(callbacks)
@@ -265,6 +281,144 @@ Java.perform(() => {
     lastActivity = Java.retain(this);
     this.onResume();
   };
+});
+```
+
+###### cast(handle, klass)
+
+​	将指针【handle】对应的对象转化为【klass】类型的java对象。需要注意的是参数【handle】是一个指针，而参数【klass】则是使用`Java.use("className")`加载出来的具体java类。
+
+e.g.1
+
+```javascript
+// 返回的是指针，通过cast转成java对象，从而读出来，docommand函数不用管是干嘛的
+var point_0 = docommand(JNIEnv, ptr(0x0), 10412, argList_0); 
+console.log("point_0: " + point_0);
+var s_0 = Java.cast(point_0, Java.use("java.lang.Object"));
+console.log("result: " + s_0);
+```
+
+e.g.2
+
+```javascript
+// 官网例子
+const Activity = Java.use('android.app.Activity');
+const activity = Java.cast(ptr('0x1234'), Activity);
+```
+
+###### array(type, elements)
+
+​	根据【type】创建对应类型的数组，数组中的元素为传入的【elements】。
+
+e.g.
+
+```javascript
+const values = Java.array('int', [ 1003, 1005, 1007 ]);
+
+const JString = Java.use('java.lang.String');
+const str = JString.$new(Java.array('byte', [ 0x48, 0x65, 0x69 ]));
+```
+
+###### isMainThread()
+
+​	判断调用者是否在主线程中。
+
+> 用的很少，在看雪上就搜到两个远古贴用到了。52破解上就没找到相关代码。
+
+###### registerClass(spec)
+
+​	可以理解为使用JavaScript创建了一个java类，参数【spec】是一个对象，包含的属性如下：
+
+1. **name**：类名
+
+2. **superClass【选填】**：父类名
+
+   > 需要使用java.use()加载出来
+
+3. **implements【选填】**：实现接口的列表，
+
+   > **注意**：
+   >
+   > 1. 一个列表，因为java单继承多实现。
+   > 2. 同样需要使用java.use()加载出来
+
+4. **fields【选填】**：属性名及类型
+
+   > {
+   >
+   > ​	fieldName_1: “java.lang.String”,
+   >
+   > ​	fieldName_2: “int”,
+   >
+   > }
+
+5. **methods【选填】**：方法声明及实现
+
+   > {                
+   >
+   > ​	checkClientTrusted: function(chain, authType) {},
+   >
+   > ​	checkServerTrusted: function(chain, authType) {}, 
+   >
+   > ​	getAcceptedIssuers: function() {return []; }
+   >
+   > }
+
+e.g.
+
+```javascript
+// 官方例子
+const SomeBaseClass = Java.use('com.example.SomeBaseClass');
+const X509TrustManager = Java.use('javax.net.ssl.X509TrustManager');
+
+const MyTrustManager = Java.registerClass({
+  name: 'com.example.MyTrustManager',
+  implements: [X509TrustManager],
+  methods: {
+    checkClientTrusted(chain, authType) {
+    },
+    checkServerTrusted(chain, authType) {
+    },
+    getAcceptedIssuers() {
+      return [];
+    },
+  }
+});
+
+const MyWeirdTrustManager = Java.registerClass({
+  name: 'com.example.MyWeirdTrustManager',
+  superClass: SomeBaseClass,
+  implements: [X509TrustManager],
+  fields: {
+    description: 'java.lang.String',
+    limit: 'int',
+  },
+  methods: {
+    $init() {
+      console.log('Constructor called');
+    },
+    checkClientTrusted(chain, authType) {
+      console.log('checkClientTrusted');
+    },
+    checkServerTrusted: [{
+      returnType: 'void',
+      argumentTypes: ['[Ljava.security.cert.X509Certificate;', 'java.lang.String'],
+      implementation(chain, authType) {
+        console.log('checkServerTrusted A');
+      }
+    }, {
+      returnType: 'java.util.List',
+      argumentTypes: ['[Ljava.security.cert.X509Certificate;', 'java.lang.String', 'java.lang.String'],
+      implementation(chain, authType, host) {
+        console.log('checkServerTrusted B');
+        return null;
+      }
+    }],
+    getAcceptedIssuers() {
+      console.log('getAcceptedIssuers');
+      return [];
+    },
+  }
 });
 ```
 
