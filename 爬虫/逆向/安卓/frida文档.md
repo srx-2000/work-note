@@ -154,6 +154,10 @@ frida -H 127.0.0.1:27042 -f com.hipu.yidian -l hook_so_test_1.js
 
    获取当前线程的JNIEnv，如果当前线程没有attach到一个java虚拟机时，返回null。
 
+###### ClassFactory
+
+​	暂时没用到过，也比较复杂可能讲不明白，等后面遇见实例之后再补充。
+
 ##### 方法
 
 ###### enumerateLoadedClasses(callbacks)
@@ -482,7 +486,7 @@ const MyWeirdTrustManager = Java.registerClass({
 
 ​	返回所有**线程**的**`Thread`对象**。
 
-###### findModuleByAddress(address)、findModuleByName(name）
+###### findModuleByAddress(address)、findModuleByName(name)
 
 ​	通过地址【module名字】返回一个`Module`对象，如果没有找到返回null
 
@@ -583,7 +587,126 @@ Interceptor.attach(f, {
 
 #### [Module](https://frida.re/docs/javascript-api/#module)
 
+​	`Module`对象可以通过四种方法获取：[`Module.load(path)`](######Module.load(path))、[`Process.enumerateModules()`](######enumerateModules())、[` findModuleByAddress(address)【getModuleByAddress(address)】`](######findModuleByAddress(address)、findModuleByName(name))、[`findModuleByName(name)【getModuleByName(name)】`](######getModuleByAddress(address)、getModuleByName(name))
 
+​	下方所有的属性及方法的调用的前缀默认都是`ModuleObj.`，若前缀为`Module.`时会标注出来。
+
+##### 属性
+
+###### name
+
+​	返回`Module`的名称字符串
+
+###### base
+
+​	返回`Module`基址的`NativePointer`对象
+
+###### size
+
+​	返回`Module`的大小，单位byte
+
+###### path
+
+​	返回`Module`的系统全路径
+
+##### 方法
+
+###### findExportByName(exportName)、getExportByName(exportName)
+
+​	根据传入的【exportName】返回对应名字的导出对象的绝对地址。在未找到的情况下，find返回null，get抛异常。
+
+###### enumerateImports()
+
+​	枚举调用`Module`导入的所有对象。就是ida分析中Imports窗口。返回【对象列表】中的对象包含的属性：
+
+> **注意**：根据平台的不同，只有name属性能确保获取到，其余属性都是尽可能获取到。
+
+1. **type**：导入对象的类型。function或variable
+
+2. **name**：导入对象的名称
+
+3. **module**：导入对象所属`Module`的系统全路径
+
+4. **address**：导入对象的绝对地址
+
+   > **注意**：ida中的地址是相对地址
+
+5. **slot**：导入该对象时所在的内存地址，实测Android平台下无法获取这个。
+
+e.g.
+
+![image-20240103154601058](frida文档.assets/image-20240103154601058.png)
+
+###### enumerateExports()
+
+​	枚举调用`Module`导出的所有对象。就是ida分析中Exports窗口。返回【对象列表】中的对象包含的属性：
+
+1. **type**：导入对象的类型。function或variable
+
+2. **name**：导入对象的名称
+
+3. **address**：导入对象的绝对地址
+
+   > **注意**：ida中的地址是相对地址
+
+e.g.【可以看到经常被hook的android_dlopen_ext是从libdl.so导出的，并且有绝对地址（虽然绝对地址好像没啥用）】
+
+![image-20240103155147548](frida文档.assets/image-20240103155147548.png)
+
+###### enumerateSymbols()【仅支持linux/i/macOS(Android是linux体系的系统)】
+
+​	枚举调用`Module`所有**符号**对象，在ida中并没有对应的窗口。返回【对象列表】中的对象包含的属性：
+
+> **符号**：无论是否导出的变量和函数
+
+> **注意**：有一些frida可以hook到的符号在ida中即使使用字符串检索都是检索不到的，比如libart中用于动态注册native函数的函数：`_ZN3art3JNI15RegisterNativesEP7_JNIEnvP7_jclassPK15JNINativeMethodi`，虽然可以使用enumerateSymbols方法hook并筛选出来，但是在ida中无论是64位的还是32位的都是检索不到该字符串的。
+
+1. **isGlobal**：该符号对象是否为全局可见【bool类型】
+2. **type**：符号对象类型，下方类型中的一种。若带有【O】，代表并非全平台支持。带有【ELF】，代表该类型是在ELF文件中的类型。
+   1. unknown
+   2. section
+   3. undefined【O】
+   4. absolute【O】
+   5. prebound-undefined【O】
+   6. indirect【O】
+   7. object【ELF】
+   8. function【ELF】
+   9. file【ELF】
+   10. common【ELF】
+   11. tls【ELF】
+3. **section**：如果有该属性则返回，如果没有则返回undefined。由于涉及ELF文件结构，暂时放下，后续遇到再补充。
+
+> **section**：一种ELF文件中特有的数据结构，可以存放代码、数据、符号表等
+
+4. **name**：符号的名称【string类型】
+5. **address**：符号所在地址【NativePointer类型】
+6. **size**：如果存在，则以字节为单位返回符号大小
+
+###### enumerateRanges(protection)
+
+​	与[`Process.enumerateranges`](######enumerateRanges(protection|specifier))类似，不再重复。
+
+###### Module.load(path)
+
+​	根据传入的【path】加载对应的`Module`并返回一个`Module`对象，如未找到对应的`Module`则抛异常，其中【path】为系统全路径。
+
+###### Module.findBaseAddress(name), Module.getBaseAddress(name)
+
+​	根据传入的【name】返回对应`Module`的基址。若未找到对应的`Module`则抛异常。
+
+###### Module.findExportByName(moduleName|null, exportName), Module.getExportByName(moduleName|null, exportName)
+
+​	与[`findExportByName(exportName)、getExportByName(exportName)`](######findExportByName(exportName)、getExportByName(exportName))功能一致，其中第一个参数【moduleName】可以为null，当传入的值为null时则对所有的模块进行检索。这是一种比较昂贵的搜索，所以应该尽可能避免这种搜索。
+
+###### Module.ensureInitialized(name)【使用不多】
+
+​	确保【name】对应的`Module`已经成功初始化，无返回值。目前只在看雪看到几个远古帖子在脱壳时用到了。
+
+##### 补充
+
+###### Module.enumerateSymbolsSync(ModuleName)
+
+​	与[`enumerateSymbols()`](######enumerateSymbols()【仅支持linux/i/macOS(Android是linux体系的系统)】)功能一致，其中传入的【ModuleName】是`Module`的字符串名字。
 
 #### [Memory](https://frida.re/docs/javascript-api/#memory)
 
