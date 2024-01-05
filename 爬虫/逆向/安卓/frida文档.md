@@ -710,7 +710,11 @@ e.g.【可以看到经常被hook的android_dlopen_ext是从libdl.so导出的，�
 
 #### [Memory](https://frida.re/docs/javascript-api/#memory)
 
+​	下方所有的方法的调用的前缀默认都是`Memory.`。
 
+##### 方法
+
+###### scan
 
 #### [Interceptor](https://frida.re/docs/javascript-api/#interceptor)
 
