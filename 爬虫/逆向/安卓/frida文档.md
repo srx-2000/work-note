@@ -120,6 +120,14 @@ frida -H 127.0.0.1:27042 -f com.hipu.yidian -l hook_so_test_1.js
 
 ## frida API文档
 
+### frida编写提示库
+
+```bash
+npm install -g @types/frida-gum  # -g是全局安装
+```
+
+安装了这个node库之后，再编写frida就可以有基础提示了。
+
 ### Android常用模块
 
 所有的属性都是直接`模块.属性`就可以调出来的，e.g. `Process.id`。
@@ -714,7 +722,61 @@ e.g.【可以看到经常被hook的android_dlopen_ext是从libdl.so导出的，�
 
 ##### 方法
 
-###### scan
+###### scan(address, size, pattern, callbacks)
+
+​	根据给出的【address】、【size】、【pattern】参数匹配对应的内存对象
+
+> 相当于用address和size划出一个**范围**，在这个**范围**内用pattern进行检索。
+
+​	其中【pattern】的格式是16进制的值（[hexdump](#####Hexdump)函数打印处的第二列）。参数【callbacks】为回调对象，其中包含以下三个回调函数：
+
+1. **onMatch(address, size)**：当匹配成功时调用，参数【address】是一个`NativePointer`对象，size为匹配到的内存的大小
+2. **onError(reason)**：当内存访问出错时调用，参数【reason】为错误原因。
+3. **onComplete()**：当**范围**全部扫描完成后被调用。
+
+e.g.
+
+```javascript
+// Find the module for the program itself, always at index 0:
+const m = Process.enumerateModules()[0];
+
+// Or load a module by name:
+//const m = Module.load('win32u.dll');
+
+// Print its properties:
+console.log(JSON.stringify(m));
+
+// Dump it from its base address:
+console.log(hexdump(m.base));
+
+// The pattern that you are interested in:
+const pattern = '00 00 00 00 ?? 13 37 ?? 42';
+
+Memory.scan(m.base, m.size, pattern, {
+  onMatch(address, size) {
+    console.log('Memory.scan() found match at', address,
+        'with size', size);
+
+    // Optionally stop scanning early:
+    return 'stop';
+  },
+  onComplete() {
+    console.log('Memory.scan() complete');
+  }
+});
+
+const results = Memory.scanSync(m.base, m.size, pattern);
+console.log('Memory.scanSync() result:\n' +
+    JSON.stringify(results));
+```
+
+![1704778739985](frida文档.assets/1704778739985.jpg)
+
+###### scanSync(address, size, pattern)
+
+​	[scan](######scan)的Sync版本，不再使用回调函数进行处理，而是直接返回匹配成功的内存对象列表，每个内存对象包含`address`和`size`属性。若未找到匹配的内存对象返回一个空列表。
+
+
 
 #### [Interceptor](https://frida.re/docs/javascript-api/#interceptor)
 
@@ -740,3 +802,10 @@ e.g.【可以看到经常被hook的android_dlopen_ext是从libdl.so导出的，�
 
 ##### [Hexdump](https://frida.re/docs/javascript-api/#hexdump)
 
+#### 存档【在别的地方见到了，好用，但还未能编写到的】
+
+##### this.returnAddress
+
+​	该属性主要用于interceptor这个拦截模块下，在onEnter函数中可以使用该函数直接获取到当前正在进入的函数所在的module的地址。而有了这个地址，就可以使用`Process.findModuleByAddress(this.returnAddress)`找到对应的so的名字和路径了。在frida文档中也有提及，但是仅有一处，属于比较隐藏的使用方法。
+
+![image-20240614173027274](frida文档.assets/image-20240614173027274.png)

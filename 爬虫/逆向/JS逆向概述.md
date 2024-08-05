@@ -1204,6 +1204,283 @@ beier.hookObj = function (obj, objName, propName, isDebug) {
 1. 找到加密的具体位置，把加密代码扣下来保存到本地
 2. 搭建websocket服务和客户端。服务由浏览器通过保存下来的加密代码以及ws相关配置组成。而客户端则是python端的调度。python端在调度的时候只需要向浏览器中搭建好的ws服务发送消息，并接收返回的加密值即可
 
+## Ast抽象语法树
+
+​	抽象语法树可以理解为一种标签树，它会把一句简单的js代码拆分成一个树形结构，而我们可以通过对树上节点的增删改查来间接的操作js代码。抽象语法树本身并不是js独有的。在真正的开发上可以应用在制作混淆器，反混淆器等。
+
+### 工具网站
+
+1. 语法树在线解析：https://astexplorer.net/
+
+2. babel 官方文档-types：https://www.babeljs.cn/docs/babel-types
+
+3. babel使用手册github仓库【中文】：https://github.com/jamiebuilds/babel-handbook/blob/master/translations/zh-Hans/plugin-handbook.md
+
+   > 如果有部分中文文档出现排版问题的话，可以去英文文档处补全。
+
+### 实例
+
+​	使用上述语法树在线解析网站，对`var a=1`这句代码进行解析可以得到下图的Ast。
+
+![image-20240515143343852](JS逆向概述.assets/image-20240515143343852.png)
+
+### 操作
+
+​	在js中操作ast语法树的时候，可以使用babel工具。该工具用官网的话说就是：Babel 是一个 JavaScript 编译器。他可以将js代码进行解析生成对应的ast，同时还提供了很多便于我们开发的内置工具库：generate、traverse、types等。
+
+​	在使用babel工具操作ast时，几乎可以做到json式的调用，一切`.`就完事了。下面给出一个具体的例子：
+
+#### 导入相关库
+
+```js
+// 解析器，将代码转为ast
+const parser = require("@babel/parser");
+// 遍历器，注意.default是必须的【网络上和gpt都说这个遍历器本身是有递归的，但是我测试的结果好像并没有，也可能是我用错了】
+const traverse = require("@babel/traverse").default;
+// 类型工具
+const types = require("@babel/types");
+// 模板包，在写反混淆器的时候用到的不多，本身和python中的  f"{}"  类似，{}中放上需要更改的代码，详见template的例子
+const template = require("@babel/template");
+// 代码生成器，将ast转为代码，注意.default是必须的
+const generator = require("@babel/generator").default;
+// js的文件读写工具
+const fs = require("fs");
+```
+
+#### 文件读入
+
+```js
+var code = fs.readFileSync("code_all.js", {
+    encoding: "utf8"
+})
+```
+
+#### 生成ast
+
+```js
+let ast = parser.parse(code)
+```
+
+#### 解析&遍历&操作ast
+
+```js
+// 在babel中对ast的操作和遍历是通过一个Handler对象完成的，对象中的每一个属性就对应了一种遍历操作，如下方的ArrayExpression和CallExpression就分别对应了遍历输入代码中的所有的ArrayExpression和CallExpression类型的节点时需要做filtrateArr和DealArrAndMapDict这两种操作。
+var handler = {
+    ArrayExpression: filtrateArr, 
+    CallExpression: DealArrAndMapDict
+}
+// 将ast和解析对象放入traverse工具中进行遍历。
+traverse(ast, handler)
+```
+
+#### 编写解析函数
+
+```js
+// 下面的代码就是一个简单的反混淆器，其中的filtrateArr和DealArrAndMapDict分别对应了上一步中的同名函数。需要注意的是path这个参数，这个参数存放了当前遍历到的节点的路径，可以使用.node获取当前节点，也可以使用parentPath获取父路径等等。
+
+// 筛选出需要进行解密的数组
+function filtrateArr(path) {
+    var elements = path.node.elements;
+    if (types.isStringLiteral(elements[0]) && types.isStringLiteral(elements[elements.length - 1]) && elements.length > 10) {
+        var test_code = elements[0].value
+        if (!isBase64(test_code))
+            return
+        temp_arr = elements
+        console.log("temp_arr==>" + temp_arr.length)
+    }
+}
+
+function DealArrAndMapDict(path) {
+    var arguments = path.node.arguments
+    if (arguments.length === 1 && types.isStringLiteral(arguments[0]) && arguments[0].value.includes("0x")) {
+        var index = parseInt(arguments[0].value)
+        var value = func_arr_dict[id_name_t][index]
+        path.replaceWith(types.StringLiteral(value))
+        var code1 = generator(path.parentPath.node).code;
+        console.log(code1)
+        if (code1.includes("4|1|3|6|5|7|0|8|2"))
+            // 查看想要查看的代码在所在文件的具体行号
+            console.log(path.parentPath.node.loc.start.line)
+    }
+    // 当filtrateArr函数筛选出需要转换的数组才进入后续处理
+    if (temp_arr.length !== 0) {
+        // 每次遍历到CallExpression表达式创建一个数组用于存放解密之后的数组元素
+        var arr = []
+        // 使用ks原生的代码进行数组调换
+        reverArray(temp_arr, arguments[1].value)
+        // 进行数组解密，并将解密后的数组分别放入arr和temp_arr，temp_arr用于替换源代码，arr用于构建字典映射
+        for (let i = 0; i < temp_arr.length; i++) {
+            var decode_str = atob(temp_arr[i].value)
+            temp_arr[i].value = decode_str
+            arr.push(decode_str)
+        }
+        // 寻找每个数组对应的函数名称，并将函数名称与数组进行映射，方便后续替换
+        var parent_node = path.parent
+        var grad_node = path.parentPath.parent.body
+        var indexof = grad_node.indexOf(parent_node);
+        var gradNodeElement = grad_node[indexof + 1];
+        if (types.isVariableDeclaration(gradNodeElement) && gradNodeElement.kind === "var") {
+            var declarations = gradNodeElement.declarations
+            for (let i = 0; i < declarations.length; i++) {
+                if (types.isFunctionExpression(declarations[i].init)) {
+                    var id_name = declarations[i].id.name
+                    if (id_name in func_arr_dict) {
+                        // if (id_name==="f")
+                        console.log("重复==>" + id_name)
+                        id_name += "_1"
+                    }
+                    id_name_t = id_name
+                    func_arr_dict[id_name] = arr
+                }
+            }
+        }
+        // 每次清空替换数组，并重新使用filtrateArr方法进行筛选
+        temp_arr = []
+    }
+}
+
+```
+
+#### 生成新的代码
+
+```js
+var compile_code = generator(ast).code
+```
+
+#### 写入文件
+
+```js
+fs.writeFileSync("code_result.js", compile_code)
+```
+
+#### 组件使用案例
+
+##### template例子
+
+```js
+const template = require('@babel/template');
+const getTemplate = template.default(`console.log(TEST)`)
+
+
+const ast = getTemplate({
+  TEST: '666'
+})
+
+console.log(ast)
+```
+
+##### 获取兄弟节点
+
+```js
+// 找到祖父节点或是父节点的子节点序列，按需更改，后续皆称为父节点
+var grad_node = path.parentPath.parent.body
+// 获取当前节点在父节点列表的索引
+var indexof = grad_node.indexOf(parent_node);
+// 使用索引获取下一个兄弟。
+var gradNodeElement = grad_node[indexof + 1];
+```
+
+##### 获取父节点路径
+
+```js
+// 之所以会有这个的样例，是因为，如果你使用：path.node.parent.path这种方式是无法获取到父节点路径的
+path.parentPath
+```
+
+##### 替换节点
+
+###### replaceWith
+
+```js
+// 使用replaceWith()的话，括号中的参数就必须是babel语法中定义的一个节点对象
+path.replaceWith(types.StringLiteral(value))
+// 官方例子
+BinaryExpression(path) {
+  path.replaceWith(
+    t.binaryExpression("**", path.node.left, t.numberLiteral(2))
+  );
+}
+
+// 结果,-代表被替换的部分，+代表替换后的部分
+function square(n) {
+-   return n * n;
++   return n ** 2;
+  }
+```
+
+![image-20240515152246663](JS逆向概述.assets/image-20240515152246663.png)
+
+> **Tips**：
+>
+> ​	如果要替换父节点，只需要将上述示例中的path替换成path.parentPath即可。
+
+###### replaceWithMultiple
+
+```js
+// 官方例子，使用replaceWithMultiple()的话，括号中的参数就必须是babel语法中定义的多个节点对象
+ReturnStatement(path) {
+  path.replaceWithMultiple([
+    t.expressionStatement(t.stringLiteral("Is this the real life?")),
+    t.expressionStatement(t.stringLiteral("Is this just fantasy?")),
+    t.expressionStatement(t.stringLiteral("(Enjoy singing the rest of the song in your head)")),
+  ]);
+}
+
+// 结果,-代表被替换的部分，+代表替换后的部分
+function square(n) {
+-   return n * n;
++   "Is this the real life?";
++   "Is this just fantasy?";
++   "(Enjoy singing the rest of the song in your head)";
+  }
+```
+
+![image-20240515152337969](JS逆向概述.assets/image-20240515152337969.png)
+
+> **注意：**
+>
+> ​	在使用一堆节点替换一个表达式时，那么这一堆节点必须是statements类型的节点【上述例子中使用的就是expressionStatement类型的】，这是由于babel在进行替换时使用的是启发式替换。
+
+###### replaceWithSourceString
+
+```js
+// 官方例子，使用replaceWithSourceString()的话，括号中的参数就可以是想要替换的字符串，这种方式不能确保源代码的结构不被破坏
+FunctionDeclaration(path) {
+  path.replaceWithSourceString(`function add(a, b) {
+    return a + b;
+  }`);
+}
+
+// 结果,-代表被替换的部分，+代表替换后的部分
+- function square(n) {
+-   return n * n;
++ function add(a, b) {
++   return a + b;
+  }
+```
+
+![image-20240515152813034](JS逆向概述.assets/image-20240515152813034.png)
+
+
+
+#### 认知突破
+
+1. 由于ast的增删改查本质上是一种静态的操作，所以很多原混淆器中的解密函数无法运行【但我们在解密的时候还必须要使用到这些解密参数才能获取我们想要的解密结果】，此时可以尝试将解密函数放到ast解混淆器的文件中进行运行，而我们只需要用ast将需要传入的参数抠出来，放入解混淆器中的解密函数运行出结果再放回去就行了。
+
+   > 有一个典型的例子就是快手：将变量名进行了一个base64+数组映射+数组打乱。
+   >
+   > 1. base64可以直接调用node中自带的base64解密【当然如果有自己实现base64的那种，也需要把这个抠出来】。
+   >
+   > 2. 数组映射本质上就是通过给一个函数中传入一个索引，并且通过一些运算，最终使用这个索引到对应是数组中取取值。
+   >
+   >    由于快手这老东西一共弄了27个这样的映射，每一个函数对应一个数组【但是函数都是一个模板】。所以我采用的方式是建立一个数组函数映射字典，函数的名称作为字典的key，数组作为value。每次要使用某一个函数获取值时，我就可以通过ast获取函数名并到对应的key处找到数组，同时用ast获取传入函数的索引进行取值。
+   >
+   > 3. 数组打乱则是将传入的数组，根据传入的一个数字进行打乱。
+   >
+   >    数组打乱这个就是一个简单的自执行函数。我直接将这个自执行函数拷贝到本地的ast反混淆器中，并写成一个函数，遍历所以他调用过该自执行函数的地方使用ast获取到他传入的数组和数字，传入我自己写的那个函数就可以确保和他获取到的结果一致，并将打乱后的数组再放回该数组所在地
+
+
+
 
 
 ## 调试小技巧
