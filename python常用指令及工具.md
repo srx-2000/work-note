@@ -13,6 +13,13 @@ https://developer.mozilla.org/zh-CN/docs/Web/API/Navigator
 ```
 
 3. pip包打包指令
+4. selenium参数大全
+
+```tex
+https://peter.sh/experiments/chromium-command-line-switches
+```
+
+
 
 **方式一**
 
