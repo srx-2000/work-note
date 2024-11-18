@@ -1,0 +1,364 @@
+{
+    "api": "mtop.fliggy.vacationshelf.poi.item.queryPoiShelfTicketSkuLayer",
+    "data": {
+        "bookJumpInfo": {
+            "jumpH5Url": "https://market.m.taobao.com/app/trip/rx-trip-ticket/pages/merchant-selection?titleBarHidden=2&disableNav=YES&fpt=vac(poi)",
+            "jumpNative": false,
+            "jumpNativeUrl": "https://market.m.taobao.com/app/trip/rx-trip-ticket/pages/merchant-selection?titleBarHidden=2&disableNav=YES&fpt=vac(poi)"
+        },
+        "filterProperties": [
+            {
+                "propId": 160724682,
+                "propSubTitle": "全天通用，可当日多次入园，开启奇妙之旅！",
+                "propTitle": "1日票"
+            },
+            {
+                "propId": 10682468,
+                "propList": [
+                    {
+                        "pvId": "10682468:60484007",
+                        "sort": 0,
+                        "tips": "游园当日身高1.4米以上，12-59周岁(含)",
+                        "value": "成人票"
+                    },
+                    {
+                        "pvId": "10682468:60484008",
+                        "sort": 1,
+                        "tips": "游园当日3周岁(含)-11周岁(含)，或身高1.0米以上至1.4米(含)",
+                        "value": "儿童票"
+                    },
+                    {
+                        "pvId": "10682468:147706196",
+                        "sort": 2,
+                        "tips": "1张1日成人票+1张1日儿童票",
+                        "value": "亲子票(1大1小)"
+                    },
+                    {
+                        "pvId": "10682468:98580068",
+                        "sort": 3,
+                        "tips": "2张1日成人票+1张1日儿童票",
+                        "value": "家庭票(2大1小)"
+                    },
+                    {
+                        "pvId": "10682468:98007583",
+                        "sort": 4,
+                        "tips": "游园当日60周岁及以上",
+                        "value": "老人票"
+                    },
+                    {
+                        "pvId": "10682468:1512201125",
+                        "sort": 5,
+                        "tips": "2张1日票成人票+2张1日儿童票",
+                        "value": "家庭票(2大2小)"
+                    },
+                    {
+                        "pvId": "10682468:124303557",
+                        "sort": 6,
+                        "tips": "2张1日成人票",
+                        "value": "双人票"
+                    },
+                    {
+                        "pvId": "10682468:300320247",
+                        "sort": 7,
+                        "tips": "3张1日成人票",
+                        "value": "三人票"
+                    },
+                    {
+                        "pvId": "10682468:4151317130",
+                        "sort": 8,
+                        "tips": "1张1日票成人票+2张1日儿童票",
+                        "value": "亲子票(1大2小)"
+                    },
+                    {
+                        "pvId": "10682468:18475812620",
+                        "sort": 9,
+                        "tips": "持有效残障证明的游客",
+                        "value": "残障票"
+                    }
+                ],
+                "propTitle": "门票种类",
+                "propType": "ticketKind"
+            },
+            {
+                "propId": 1017,
+                "propList": [
+                    {
+                        "calendarList": [
+                            {
+                                "date": "2024-11-15",
+                                "finalPrice": 43900,
+                                "itemId": 626612202303,
+                                "skuId": 5714639567155
+                            },
+                            {
+                                "date": "2024-11-16",
+                                "finalPrice": 55040,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-11-17",
+                                "finalPrice": 42840,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-11-18",
+                                "finalPrice": 42547,
+                                "itemId": 772763983895,
+                                "skuId": 5483486952820
+                            },
+                            {
+                                "date": "2024-11-19",
+                                "finalPrice": 42548,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-20",
+                                "finalPrice": 42548,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-21",
+                                "finalPrice": 42548,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-22",
+                                "finalPrice": 42548,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-23",
+                                "finalPrice": 55990,
+                                "itemId": 586505411831,
+                                "skuId": 5772235815714
+                            },
+                            {
+                                "date": "2024-11-24",
+                                "finalPrice": 50160,
+                                "itemId": 586505411831,
+                                "skuId": 5772235815714
+                            },
+                            {
+                                "date": "2024-11-25",
+                                "finalPrice": 38990,
+                                "itemId": 811690725985,
+                                "skuId": 5786095102888
+                            },
+                            {
+                                "date": "2024-11-26",
+                                "finalPrice": 38990,
+                                "itemId": 811690725985,
+                                "skuId": 5786095102888
+                            },
+                            {
+                                "date": "2024-11-27",
+                                "finalPrice": 38868,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-28",
+                                "finalPrice": 38868,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-29",
+                                "finalPrice": 38868,
+                                "itemId": 812648745046,
+                                "skuId": 5674855686582
+                            },
+                            {
+                                "date": "2024-11-30",
+                                "finalPrice": 51780,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-12-01",
+                                "finalPrice": 45540,
+                                "itemId": 811690725985,
+                                "skuId": 5786095102888
+                            },
+                            {
+                                "date": "2024-12-02",
+                                "finalPrice": 39080,
+                                "itemId": 735627246654,
+                                "skuId": 5257005943715
+                            },
+                            {
+                                "date": "2024-12-03",
+                                "finalPrice": 39080,
+                                "itemId": 735627246654,
+                                "skuId": 5257005943715
+                            },
+                            {
+                                "date": "2024-12-04",
+                                "finalPrice": 39080,
+                                "itemId": 735627246654,
+                                "skuId": 5257005943715
+                            },
+                            {
+                                "date": "2024-12-05",
+                                "finalPrice": 39080,
+                                "itemId": 735627246654,
+                                "skuId": 5257005943715
+                            },
+                            {
+                                "date": "2024-12-06",
+                                "finalPrice": 39080,
+                                "itemId": 735627246654,
+                                "skuId": 5257005943715
+                            },
+                            {
+                                "date": "2024-12-07",
+                                "finalPrice": 51900,
+                                "itemId": 626612202303,
+                                "skuId": 5714639567155
+                            },
+                            {
+                                "date": "2024-12-08",
+                                "finalPrice": 45400,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-12-09",
+                                "finalPrice": 39200,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-12-10",
+                                "finalPrice": 39200,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-12-11",
+                                "finalPrice": 39200,
+                                "itemId": 780558134760,
+                                "skuId": 5688193782057
+                            },
+                            {
+                                "date": "2024-12-12",
+                                "finalPrice": 39290,
+                                "itemId": 665067562845,
+                                "skuId": 5789136414343
+                            },
+                            {
+                                "date": "2024-12-13",
+                                "finalPrice": 39290,
+                                "itemId": 665067562845,
+                                "skuId": 5789136414343
+                            },
+                            {
+                                "date": "2024-12-14",
+                                "finalPrice": 51900,
+                                "itemId": 626612202303,
+                                "skuId": 5714639567155
+                            }
+                        ],
+                        "end": "2024-12-14",
+                        "start": "2024-11-15"
+                    }
+                ],
+                "propTitle": "使用日期"
+            }
+        ],
+        "itemId": 626612202303,
+        "offlinePriceStruct": {
+            "integerPrice": "457",
+            "price": "457",
+            "pricePrefix": "¥"
+        },
+        "pricePromotionDetail": {
+            "finalPrice": 43900,
+            "priceReduceTotal": {
+                "integerPrice": "18",
+                "price": "18",
+                "pricePrefix": "-¥"
+            },
+            "singleAvailableCouponInfoList": [],
+            "structFinalPrice": {
+                "coupon": false,
+                "price": 43900,
+                "promotionPrice": {
+                    "integerPrice": "439",
+                    "price": "439",
+                    "pricePrefix": "¥",
+                    "priceSuffix": "起"
+                },
+                "promotionType": {
+                    "text": "单件优惠后价格",
+                    "textColor": "#333333"
+                }
+            },
+            "structOriginPrice": {
+                "coupon": false,
+                "price": 45700,
+                "promotionPrice": {
+                    "integerPrice": "457",
+                    "price": "457",
+                    "pricePrefix": "¥",
+                    "priceSuffix": "起"
+                },
+                "promotionType": {
+                    "text": "价格",
+                    "textColor": "#333333"
+                }
+            },
+            "structPromotionList": [
+                {
+                    "coupon": false,
+                    "price": 1800,
+                    "promotionPrice": {
+                        "integerPrice": "18",
+                        "price": "18",
+                        "pricePrefix": "-¥"
+                    },
+                    "promotionType": {
+                        "borderColor": "#FF7300",
+                        "icon": "https://gw.alicdn.com/imgextra/i1/O1CN01szUeHk26wYtPgeBi3_!!6000000007726-2-tps-168-52.png",
+                        "subText": "度假补贴金额由飞猪联合商家优惠",
+                        "text": "度假补贴",
+                        "textColor": "#FF401A",
+                        "type": "real_bybt_promotion"
+                    },
+                    "sort": 0
+                }
+            ]
+        },
+        "priceStruct": {
+            "integerPrice": "439",
+            "price": "439",
+            "pricePrefix": "¥",
+            "priceSuffix": "起"
+        },
+        "promotionPriceStruct": {
+            "integerPrice": "18",
+            "price": "18",
+            "pricePrefix": "共优惠¥",
+            "tagPrefix": {
+                "bgIcon": "https://img.alicdn.com/imgextra/i2/O1CN01CyI37Y20kIP2a5rgb_!!6000000006887-2-tps-132-52.png",
+                "text": "特惠",
+                "textColor": "#FF3F1A",
+                "type": "ALL_PROMOTION"
+            },
+            "tagPrefixList": []
+        },
+        "skuId": 5714639567155,
+        "supportQuickOrder": false
+    },
+    "ret": [
+        "SUCCESS::调用成功"
+    ],
+    "traceId": "2150447217316621599362344ea7e9",
+    "v": "1.0"
+}
