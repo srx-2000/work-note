@@ -1509,6 +1509,33 @@ if (window.tl[window.tl.length - 1] == 31 && window.tl[window.tl.length - 2] == 
 //其中window.tl这个变量的声明需要再console中执行，即：window.tl=[]，而后再重投具有加密的请求，当需要多次调试时，记得每次重投请求之前哦度重置一次window.tl
 ```
 
+### 过大的log日志如何保存到本地
+
+​	在插装分析jsvmp时，有时候会遇见输出很大的日志，点名某音。会吧devtools给卡崩掉，从而导致之前输出的日志全部白打，此时主要用以下两个措施可以有效减少日志输出量：
+
+1. 在两个请求之间开始输出日志：假设我要抓的加密接口是：接口A，而在接口A之前有很多接口也都调用了这个加密，导致输出了一大堆我们不想要的加密流程【有时甚至会在输出阶段就把devtools卡崩】。此时我们去网络tab页里找到固定在接口A之前发送的一个xhr请求。打上这个请求的xhr断点，并在断点断住后再开启日志打印。	
+2. 使用判断条件，减少日志输出。
+
+​	在devtools可以成功打印所有的加密日志之后，就来到了第二个坑，如何保存。在第一步成功将所有的日志trace打印到devtools之后，理论上我们直接右键save as即可保存。但是当日志文件过大时，可能出现保存到一半devtools就崩了的情况。此时可以尝试以下方式解决，其可以确保只要在打印时不崩，就一定可以全部保存到本地。
+
+1. 使用taskkill杀掉所有的chrome进程
+
+   ```cmd
+   taskkill /F /IM chrome.exe
+   ```
+
+2. 使用命令行启动chrome，并添加日志打印功能，将日志文件输出到chrome_debug.log文件中
+
+   ```bash
+   chrome.exe --enable-logging --v=0 --log-file=chrome_debug.log # --v=0是不打印冗余日志
+   ```
+
+3. 这里使用的路径默认是chrome的User Data目录，当然也可以添加启动参数，指定User Data的路径，其中的chrome_debug.log就是打印好的日志
+
+   ```bash
+   --user-data-dir="C:\path\to\your\user\data"
+   ```
+
 ## 附录
 
 ### BOM
