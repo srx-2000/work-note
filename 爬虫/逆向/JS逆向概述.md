@@ -1522,12 +1522,14 @@ if (window.tl[window.tl.length - 1] == 31 && window.tl[window.tl.length - 2] == 
 
    ```cmd
    taskkill /F /IM chrome.exe
+   taskkill /F /IM msedge.exe
    ```
 
 2. 使用命令行启动chrome，并添加日志打印功能，将日志文件输出到chrome_debug.log文件中
 
    ```bash
    chrome.exe --enable-logging --v=0 --log-file=chrome_debug.log # --v=0是不打印冗余日志
+   msedge.exe --enable-logging --v=0 --log-file=edge_debug.log
    ```
 
 3. 这里使用的路径默认是chrome的User Data目录，当然也可以添加启动参数，指定User Data的路径，其中的chrome_debug.log就是打印好的日志
