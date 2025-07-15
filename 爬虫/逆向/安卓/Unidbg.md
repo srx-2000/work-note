@@ -226,3 +226,18 @@ case "okio/Buffer->writeString(Ljava/lang/String;Ljava/nio/charset/Charset;)Loki
 
 ​	`this.pid = Integer.parseInt(pid) & 0x7fff;`将这行的this.pid写成一个固定值，需要注意不要超过`0x7fff`。
 
+## Unidbg的一些bug或是小技巧？
+
+### nr=222且报错munmap IllegalStateException
+
+#### 问题
+
+在补环境时如果遇见了下面这种会报nr=222且munmap IllegalStateException的问题，则可以尝试通过修改unidbg代码的方式进行修复。
+
+![image-20250625170929915](Unidbg.assets/image-20250625170929915.png)
+
+#### 修复方式
+
+找到`com/github/unidbg/spi/AbstractLoader.java`文件，把其中报错的这部分代码注释掉。
+
+![image-20250625171043133](Unidbg.assets/image-20250625171043133.png)
